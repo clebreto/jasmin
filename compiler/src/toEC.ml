@@ -956,19 +956,11 @@ let onarray_ty_dfl env ws n =
 (* Extraction of array operations *)
 
 module type EcArray = sig
-(* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  val ec_warray2array8: Env.t -> int -> ec_expr
-  val ec_cast_array: Env.t -> wsize * int -> wsize * int -> ec_expr -> ec_expr
-  val toec_pget_direct: Env.t -> Memory_model.aligned * Warray_.arr_access * wsize * int gvar * ec_expr -> ec_expr
-  val toec_psub: Env.t -> Warray_.arr_access * wsize * int * int ggvar * ec_expr -> ec_expr
-  val toec_laset_direct: Env.t -> Warray_.arr_access * wsize * int gvar * ec_expr -> ec_expr -> ec_expr
-  val toec_lasub: Env.t -> Warray_.arr_access * wsize * int * int gvar L.located * ec_expr -> ec_expr -> ec_expr
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*)
   val ec_darray8: Env.t -> int -> ec_expr
   val ec_cast_array: Env.t -> wsize * int -> wsize * int -> ec_expr -> ec_expr
   val toec_pget : Env.t -> Memory_model.aligned * Warray_.arr_access * wsize * int gvar * ec_expr -> ec_expr
   val toec_psub: Env.t -> Warray_.arr_access * wsize * int * int ggvar * ec_expr -> ec_expr
-  val toec_laset : Env.t -> Warray_.arr_access * wsize * int gvar * ec_expr -> ec_expr -> ec_expr
+  val toec_laset : Env.t -> Warray_.arr_access * wsize * int gvar * ec_expr -> ec_expr -> ec_instr
   val toec_lasub: Env.t -> Warray_.arr_access * wsize * int * int gvar L.located * ec_expr -> ec_expr -> ec_expr
 
   val onarray_ty : Env.t -> wsize -> int -> string
@@ -1041,13 +1033,18 @@ module EcArrayOld : EcArray = struct
 
   let toec_laset env (aa, ws, x, e1) e =
     let (xws,n) = array_kind x.v_ty in
-    let nws = n * int_of_ws xws in
-    let warray = ec_WArray env (nws / 8) in
-    let waget = Eident [warray; Format.sprintf "get%i" (int_of_ws xws)] in
-    let wsi = int_of_ws ws in
-    let waset = Eident [warray; Format.sprintf "set%i%s" wsi (fmt_access aa)] in
-    let updwa = Eapp (waset, [ec_initi_var env (x, n, xws); e1; e]) in
-    Eapp (ec_Array_init env n, [Eapp (waget, [updwa])])
+    if ws = xws && aa = Warray_.AAscale then
+      ESasgn ([LvArrItem ([ec_vars env x], e1)], e)
+    else
+      let eset =
+        let nws = n * int_of_ws xws in
+        let warray = ec_WArray env (nws / 8) in
+        let waget = Eident [warray; Format.sprintf "get%i" (int_of_ws xws)] in
+        let wsi = int_of_ws ws in
+        let waset = Eident [warray; Format.sprintf "set%i%s" wsi (fmt_access aa)] in
+        let updwa = Eapp (waset, [ec_initi_var env (x, n, xws); e1; e]) in
+        Eapp (ec_Array_init env n, [Eapp (waget, [updwa])]) in
+      ESasgn ([LvIdent [ec_vars env x]], eset)
 
   let toec_lasub env (aa, ws, len, x, e1) e =
     assert (check_array env x);
@@ -1149,13 +1146,18 @@ module EcWArray: EcArray = struct
 
   let toec_laset env (aa, ws, x, e1) e =
     let (xws,n) = array_kind x.v_ty in
-    let sizews = ws2bytes ws in
-    let sizewb = ws2bytes xws in
-    Env.add_ArrayAccessCast env sizews sizewb n;
-    let arrayaccesscast = fmt_array_theory (ArrayAccessCast { sizews; sizewb; sizeb = n }) in
-    let setf = Format.sprintf "set_cast%s" (fmt_access aa) in
-    let subf = Eident [arrayaccesscast; setf] in
-    Eapp (subf, [ec_vari env x; e1; e])
+    if ws = xws && aa = Warray_.AAscale then
+      ESasgn ([LvArrItem ([ec_vars env x], e1)], e)
+    else
+      let eset =
+        let sizews = ws2bytes ws in
+        let sizewb = ws2bytes xws in
+        Env.add_ArrayAccessCast env sizews sizewb n;
+        let arrayaccesscast = fmt_array_theory (ArrayAccessCast { sizews; sizewb; sizeb = n }) in
+        let setf = Format.sprintf "set_cast%s" (fmt_access aa) in
+        let subf = Eident [arrayaccesscast; setf] in
+        Eapp (subf, [ec_vari env x; e1; e]) in
+      ESasgn ([LvIdent [ec_vars env x]], eset)
 
   let toec_lasub env (aa, ws, len, x, e1) e =
     assert (check_array env x);
@@ -1207,7 +1209,7 @@ module EcBArray : EcArray = struct
   let scale aa ws =
     match aa with
     | Warray_.AAdirect -> ""
-    | Warray_.AAscale -> Format.sprintf "%i" (size_of_ws ws)
+    | Warray_.AAscale -> Format.sprintf "%i" (int_of_ws ws)
 
   let toec_pget (env:Env.t) (a, aa, ws, x, ei) =
     let (xws, n) = array_kind x.v_ty in
@@ -1218,8 +1220,10 @@ module EcBArray : EcArray = struct
   let toec_laset (env:Env.t) (aa, ws, x, ei) e =
     let (xws,n) = array_kind x.v_ty in
     let sz = arr_size xws n in
-    Eapp (Eident [ec_BArray env sz; Format.sprintf "set%i%s" (int_of_ws ws) (direct aa)],
-          [ec_vari env x; ei; e])
+    let eset =
+      Eapp (Eident [ec_BArray env sz; Format.sprintf "set%i%s" (int_of_ws ws) (direct aa)],
+            [ec_vari env x; ei; e]) in
+    ESasgn ([LvIdent [ec_vars env x]], eset)
 
   let toec_psub (env:Env.t) (aa, ws, len, x, ei) =
     let x = L.unloc x.gv in
@@ -1705,14 +1709,8 @@ struct
         let lvid = [ec_vars env (L.unloc x)] in
         ESasgn ([LvIdent lvid], e)
       | Laset (_, aa, ws, x, e1) ->
-        let x = L.unloc x in
-        let (xws,n) = array_kind x.v_ty in
         let e1 = toec_expr env e1 in
-        if ws = xws && aa = Warray_.AAscale then
-          ESasgn ([LvArrItem ([ec_vars env x], e1)], e)
-        else
-          let eset = EA.toec_laset env (aa, ws, x, e1) e in
-          ESasgn ([LvIdent [ec_vars env x]], eset)
+        EA.toec_laset env (aa, ws, L.unloc x, e1) e
       | Lasub (aa, ws, len, x, e1) ->
         ESasgn (
           [LvIdent [ec_vars env (L.unloc x)]],
