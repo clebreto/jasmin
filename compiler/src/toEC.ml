@@ -965,6 +965,7 @@ module type EcArray = sig
 
   val onarray_ty : Env.t -> wsize -> int -> string
 
+  val add_arr : Env.t -> wsize -> int -> unit
 end
 
 module EcArrayOld : EcArray = struct
@@ -1083,6 +1084,8 @@ module EcArrayOld : EcArray = struct
 
   let onarray_ty = onarray_ty_dfl
 
+  let add_arr env _ws n = Env.add_Array env n
+
 end
 
 module EcWArray: EcArray = struct
@@ -1191,6 +1194,8 @@ module EcWArray: EcArray = struct
 
   let onarray_ty = onarray_ty_dfl
 
+  let add_arr env _ws n = Env.add_Array env n
+
 end
 
 module EcBArray : EcArray = struct
@@ -1246,6 +1251,7 @@ module EcBArray : EcArray = struct
   let onarray_ty env ws n =
     Format.sprintf "%s.t" (ec_BArray env (arr_size ws n))
 
+  let add_arr env ws n = Env.add_BArray env (arr_size ws n)
 end
 
 (* ------------------------------------------------------------------- *)
@@ -1723,6 +1729,11 @@ struct
   (* Instruction extraction *)
 
   let toec_ty = toec_ty EA.onarray_ty
+
+  let add_ty env = function
+    | Bty _ -> ()
+    | Arr (ws, n) -> EA.add_arr env ws n
+
 
   let ec_assgn env lv (etyo, etyi) e =
       let e = e |> ec_zeroext (etyo, etyi) |> ec_cast env (ty_lval lv, etyo) in
