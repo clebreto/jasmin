@@ -67,7 +67,7 @@ let array_model =
     "Array model.
      $(b,warray): use polymorphic arrays and warrays (functions predefined in eclib).
      $(b,barray): use byte arrays (functions predefined in eclib).
-     (Deprecate) $(b,old): old representation for array operations (anonymous functions instead of eclib functions)."
+     (Deprecated) $(b,old): old representation for array operations (anonymous functions instead of eclib functions)."
   in
   Arg.(value & opt (Arg.enum alts) ToEC.BArray & info ["am"; "array-model"] ~doc)
 
