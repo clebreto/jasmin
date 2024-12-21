@@ -17,6 +17,8 @@ abstract theory ByteArray.
   abbrev [-printing] set8  (t:t) (i:int) (w:W8.t) : t = t.[i <- w].
   abbrev [-printing] set8d (t:t) (i:int) (w:W8.t) : t = t.[i <- w].
 
+  abbrev [-printing] of_list8 = of_list.
+
   abstract theory WSB.
     type B.
     op r : int.
