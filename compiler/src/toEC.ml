@@ -961,14 +961,15 @@ let of_list_dfl env _ws n =
 module type EcArray = sig
   val ec_darray8: Env.t -> int -> ec_expr
   val ec_cast_array: Env.t -> wsize * int -> wsize * int -> ec_expr -> ec_expr
-  val toec_pget : Env.t -> Memory_model.aligned * Warray_.arr_access * wsize * int gvar * ec_expr -> ec_expr
+  val toec_pget: Env.t -> Memory_model.aligned * Warray_.arr_access * wsize * int gvar * ec_expr -> ec_expr
   val toec_psub: Env.t -> Warray_.arr_access * wsize * int * int ggvar * ec_expr -> ec_expr
-  val toec_laset : Env.t -> Warray_.arr_access * wsize * int gvar * ec_expr -> ec_expr -> ec_instr
+  val toec_laset: Env.t -> Warray_.arr_access * wsize * int gvar * ec_expr -> ec_expr -> ec_instr
   val toec_lasub: Env.t -> Warray_.arr_access * wsize * int * int gvar L.located * ec_expr -> ec_expr -> ec_expr
 
-  val onarray_ty : Env.t -> wsize -> int -> string
-  val add_arr : Env.t -> wsize -> int -> unit
-  val of_list :  Env.t -> wsize -> int -> ec_expr
+  val onarray_ty: Env.t -> wsize -> int -> string
+  val add_arr: Env.t -> wsize -> int -> unit
+  val add_jarray: Env.t -> wsize -> int -> unit
+  val of_list:  Env.t -> wsize -> int -> ec_expr
 
 end
 
@@ -1090,6 +1091,7 @@ module EcArrayOld : EcArray = struct
   let onarray_ty = onarray_ty_dfl
 
   let add_arr env _ws n = Env.add_Array env n
+  let add_jarray env ws n = Env.add_jarray env ws n
 
   let of_list =  of_list_dfl
 end
@@ -1202,6 +1204,8 @@ module EcWArray: EcArray = struct
 
   let add_arr env _ws n = Env.add_Array env n
 
+  let add_jarray env ws n = Env.add_jarray env ws n
+
   let of_list =  of_list_dfl
 end
 
@@ -1259,6 +1263,8 @@ module EcBArray : EcArray = struct
     Format.sprintf "%s.t" (ec_BArray env (arr_size ws n))
 
   let add_arr env ws n = Env.add_BArray env (arr_size ws n)
+
+  let add_jarray = add_arr
 
   let of_list env ws n =
     Eident [ec_BArray env (arr_size ws n); Format.sprintf "of_list%i" (int_of_ws ws)]
@@ -1971,7 +1977,7 @@ struct
       let add_arrsz env f =
         let add env x =
           match x.v_ty with
-          | Arr(ws, n) -> Env.add_jarray env ws n
+          | Arr(ws, n) -> EA.add_jarray env ws n
           | _ -> ()
         in
         let vars = vars_fc f in
