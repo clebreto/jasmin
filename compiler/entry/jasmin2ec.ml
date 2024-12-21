@@ -69,7 +69,7 @@ let array_model =
      $(b,barray): use byte arrays (functions predefined in eclib).
      (Deprecated) $(b,old): old representation for array operations (anonymous functions instead of eclib functions)."
   in
-  Arg.(value & opt (Arg.enum alts) ToEC.BArray & info ["am"; "array-model"] ~doc)
+  Arg.(value & opt (Arg.enum alts) ToEC.BArray & info ["array-model"] ~doc)
 
 let functions =
   let doc =
