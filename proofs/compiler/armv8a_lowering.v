@@ -4,7 +4,8 @@
    Ported from the ARMv7-M lowering pass. The main differences follow from
    A64 having no conditional execution: word-sized conditional expressions
    are lowered to CSEL, and there are no conditional stores or conditional
-   immediate loads. *)
+   immediate loads. Word operations are lowered at both register sizes:
+   64-bit (X form) and 32-bit (W form). *)
 
 From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssralg.
 From mathcomp Require Import word_ssrZ.
@@ -64,13 +65,15 @@ Definition le_issue_sopn op es : low_expr := Some (op, es).
 Definition le_issue_extra op := le_issue_sopn (Oasm (ExtOp op)).
 Definition le_issue_aop aop := le_issue_sopn (Oasm (BaseOp (None, aop))).
 Definition le_issue_opts mn opts := le_issue_aop (ARMv8A_op mn opts).
-Definition le_issue mn := le_issue_opts mn default_opts.
+Definition le_issue mn ws := le_issue_opts mn (opts_at ws).
 
 Definition no_pre (ole : low_expr) : option (seq instr_r * sopn * seq pexpr) :=
   let%opt (aop, es) := ole in Some ([::], aop, es).
 
+(* Word operations are lowered at both the X (64-bit) and W (32-bit)
+   register sizes. *)
 Definition chk_ws_reg (ws : wsize) : option unit :=
-  oassert (ws == reg_size)%CMP.
+  oassert ((ws == U64) || (ws == U32))%CMP.
 
 
 (* -------------------------------------------------------------------- *)
@@ -101,15 +104,15 @@ Definition lower_condition_Papp2
   (vi : var_info)
   (op : sop2)
   (e0 e1 : pexpr) :
-  option (armv8a_mnemonic * pexpr * seq pexpr) :=
+  option (armv8a_mnemonic * wsize * pexpr * seq pexpr) :=
   let%opt (cf, ws) := cf_of_condition op in
   let%opt _ := chk_ws_reg ws in
-  let cmp := (CMP, pexpr_of_cf cf vi (fresh_flags fv), [:: e0; e1 ]) in
+  let cmp := (CMP, ws, pexpr_of_cf cf vi (fresh_flags fv), [:: e0; e1 ]) in
   match op with
   | Oeq (Op_w _) =>
       let zf_var := {| v_var := fvZF fv; v_info := vi |} in
       let eZF := Pvar (mk_lvar zf_var) in
-      Some (if lower_TST e0 e1 is Some es then (TST, eZF, es) else cmp)
+      Some (if lower_TST e0 e1 is Some es then (TST, ws, eZF, es) else cmp)
   | Oneq (Op_w _)
   | Olt (Cmp_w _ _)
   | Ole (Cmp_w _ _)
@@ -122,8 +125,8 @@ Definition lower_condition_Papp2
 Definition lower_condition_pexpr
   (vi : var_info) (e : pexpr) : option (seq lval * sopn * seq pexpr * pexpr) :=
   let%opt (op, e0, e1) := is_Papp2 e in
-  let%opt (mn, e', es) := lower_condition_Papp2 vi op e0 e1 in
-  Some (lflags_of_mn vi mn, Oarmv8a (ARMv8A_op mn default_opts), es, e').
+  let%opt (mn, ws, e', es) := lower_condition_Papp2 vi op e0 e1 in
+  Some (lflags_of_mn vi mn, Oarmv8a (ARMv8A_op mn (opts_at ws)), es, e').
 
 Definition lower_condition (vi : var_info) (e : pexpr) : seq instr_r * pexpr :=
   if lower_condition_pexpr vi e is Some (lvs, op, es, c)
@@ -140,7 +143,7 @@ Definition get_arg_shift
     [:: Papp2 op ((Pvar _) as v) ((Papp1 (Oword_of_int U8) (Pconst z)) as n) ]
   then
     let%opt sh := shift_of_sop2 ws op in
-    let%opt _ := oassert (check_shift_amount z) in
+    let%opt _ := oassert (check_shift_amount ws z) in
     Some (v, sh, n)
   else
     None.
@@ -156,7 +159,7 @@ Definition arg_shift
     else
       (None, e)
   in
-  let opts := {| has_shift := osh; |} in
+  let opts := {| has_shift := osh; opts_size := ws; |} in
   (ARMv8A_op mn opts, es).
 
 (* Lower an expression of the form [v].
@@ -167,45 +170,94 @@ Definition arg_shift
 Definition lower_Pvar (ws : wsize) (v : gvar) : low_expr :=
   let%opt _ := chk_ws_reg ws in
   let mn := if is_var_in_memory (gv v) then LDR else MOV in
-  le_issue mn [:: Pvar v ].
+  le_issue mn ws [:: Pvar v ].
 
 (* Lower an expression of the form [(ws)[v + e]] or [tab[ws e]]. *)
 Definition lower_load (ws : wsize) (e : pexpr) : low_expr :=
   let%opt _ := chk_ws_reg ws in
-  le_issue LDR [:: e ].
+  le_issue LDR ws [:: e ].
 
-Definition mov_imm_op (e : pexpr) : sopn :=
+Definition mov_imm_op (ws : wsize) (e : pexpr) : sopn :=
   if isSome (is_const e)
-  then Oasm (ExtOp (Oarmv8a_smart_li U64))
-  else Oarmv8a (ARMv8A_op MOV default_opts).
+  then Oasm (ExtOp (Oarmv8a_smart_li ws))
+  else Oarmv8a (ARMv8A_op MOV (opts_at ws)).
+
+(* Narrow zero- and sign-extending loads. *)
+Definition uload_mn (ws ws' : wsize) : option armv8a_mnemonic :=
+  match ws' with
+  | U8 => Some LDRB
+  | U16 => Some LDRH
+  | _ => None
+  end.
+
+Definition sload_mn (ws ws' : wsize) : option armv8a_mnemonic :=
+  match ws' with
+  | U8 => Some LDRSB
+  | U16 => Some LDRSH
+  | U32 => if ws == U64 then Some LDRSW else None
+  | _ => None
+  end.
+
+(* Register-to-register extensions. *)
+Definition sext_mn (ws ws' : wsize) : option armv8a_mnemonic :=
+  match ws' with
+  | U8 => Some SXTB
+  | U16 => Some SXTH
+  | U32 => if ws == U64 then Some SXTW else None
+  | _ => None
+  end.
+
+Definition uext_mn (ws ws' : wsize) : option armv8a_mnemonic :=
+  match ws' with
+  | U8 => Some UXTB
+  | U16 => Some UXTH
+  | U32 => if ws == U64 then Some UXTW else None
+  | _ => None
+  end.
 
 Definition lower_Papp1 (ws : wsize) (op : sop1) (e : pexpr) : low_expr :=
   let%opt _ := chk_ws_reg ws in
   match op with
   | Oword_of_int ws' =>
-      let%opt _ := oassert (U64 <= ws')%CMP in
-      let op := mov_imm_op e in
-      le_issue_sopn op [:: Papp1 (Oword_of_int U64) e ]
-  | Osignext U64 ws' =>
-      let%opt _ := oassert (is_load e) in
-      let%opt mn := sload_mn_of_wsize ws' in
-      le_issue mn [:: e ]
-  | Ozeroext U64 ws' =>
-      let%opt _ := oassert (is_load e) in
-      let%opt mn := uload_mn_of_wsize ws' in
-      le_issue mn [:: e ]
-  | Olnot U64 =>
-      let (op, es) := arg_shift MVN U64 [:: e ] in
+      let%opt _ := oassert (ws <= ws')%CMP in
+      let op := mov_imm_op ws e in
+      le_issue_sopn op [:: Papp1 (Oword_of_int ws) e ]
+  | Osignext ws0 ws' =>
+      let%opt _ := oassert (ws0 == ws) in
+      let%opt _ := oassert (ws' < ws)%CMP in
+      if is_load e
+      then
+        let%opt mn := sload_mn ws ws' in
+        le_issue mn ws [:: e ]
+      else
+        let%opt mn := sext_mn ws ws' in
+        le_issue mn ws [:: e ]
+  | Ozeroext ws0 ws' =>
+      let%opt _ := oassert (ws0 == ws) in
+      let%opt _ := oassert (ws' < ws)%CMP in
+      if is_load e
+      then
+        let%opt mn := uload_mn ws ws' in
+        le_issue mn ws [:: e ]
+      else
+        let%opt mn := uext_mn ws ws' in
+        le_issue mn ws [:: e ]
+  | Olnot ws0 =>
+      let%opt _ := oassert (ws0 == ws) in
+      let (op, es) := arg_shift MVN ws [:: e ] in
       le_issue_aop op es
-  | Oneg (Op_w U64) =>
-      let (op, es) := arg_shift NEG U64 [:: e ] in
+  | Oneg (Op_w ws0) =>
+      let%opt _ := oassert (ws0 == ws) in
+      let (op, es) := arg_shift NEG ws [:: e ] in
       le_issue_aop op es
   | _ =>
       le_skip
   end.
 
-Definition is_mul (e : pexpr) : option (pexpr * pexpr) :=
-  if e is Papp2 (Omul (Op_w U64)) x y then Some (x, y) else None.
+Definition is_mul (ws : wsize) (e : pexpr) : option (pexpr * pexpr) :=
+  if e is Papp2 (Omul (Op_w ws')) x y
+  then if ws' == ws then Some (x, y) else None
+  else None.
 
 Definition lower_Papp2_op
   (ws : wsize) (op : sop2) (e0 e1 : pexpr) :
@@ -213,22 +265,24 @@ Definition lower_Papp2_op
   let%opt _ := chk_ws_reg ws in
   match op with
   | Oadd (Op_w _) =>
-      if is_mul e0 is Some (x, y)
+      if is_mul ws e0 is Some (x, y)
       then Some (MADD, x, [:: y; e1 ])
-      else if is_mul e1 is Some (x, y)
+      else if is_mul ws e1 is Some (x, y)
       then Some (MADD, x, [:: y; e0 ])
       else
       Some (ADD, e0, [:: e1 ])
   | Omul (Op_w _) =>
       Some (MUL, e0, [:: e1 ])
   | Osub (Op_w _) =>
-      if is_mul e1 is Some (x, y)
+      if is_mul ws e1 is Some (x, y)
       then Some (MSUB, x, [:: y; e0 ])
       else
         Some (SUB, e0, [:: e1 ])
-  | Odiv Signed (Op_w U64) =>
+  | Odiv Signed (Op_w ws') =>
+      let%opt _ := oassert (ws' == ws) in
       Some (SDIV, e0, [:: e1 ])
-  | Odiv Unsigned (Op_w U64) =>
+  | Odiv Unsigned (Op_w ws') =>
+      let%opt _ := oassert (ws' == ws) in
       Some (UDIV, e0, [:: e1 ])
   | Oland _ =>
       Some (AND, e0, [:: e1 ])
@@ -236,30 +290,36 @@ Definition lower_Papp2_op
       Some (ORR, e0, [:: e1 ])
   | Olxor _ =>
       Some (EOR, e0, [:: e1 ])
-  | Olsr U64 =>
+  | Olsr ws' =>
+      let%opt _ := oassert (ws' == ws) in
       if is_zero U8 e1 then Some (MOV, e0, [::])
       else Some (LSR, e0, [:: e1 ])
-  | Olsl (Op_w U64) =>
+  | Olsl (Op_w ws') =>
+      let%opt _ := oassert (ws' == ws) in
       Some (LSL, e0, [:: e1 ])
-  | Oasr (Op_w U64) =>
+  | Oasr (Op_w ws') =>
+      let%opt _ := oassert (ws' == ws) in
       if is_zero U8 e1 then Some (MOV, e0, [::])
       else Some (ASR, e0, [:: e1 ])
-  | Oror U64 =>
+  | Oror ws' =>
+      let%opt _ := oassert (ws' == ws) in
       if is_zero U8 e1 then Some (MOV, e0, [::])
       else Some (ROR, e0, [:: e1 ])
-  | Orol U64 =>
+  | Orol ws' =>
+      let%opt _ := oassert (ws' == ws) in
       let%opt c := is_wconst U8 e1 in
       if c == 0%w then Some (MOV, e0, [::])
-      else Some (ROR, e0, [:: wconst (wrepr _ 64 - c)%w ])
+      else Some (ROR, e0, [:: wconst (wrepr U8 (wsize_bits ws) - c)%w ])
   | _ =>
       None
   end.
 
-(* Additions and subtractions of immediates that do not fit the 12-bit
-   (optionally shifted) encoding go through [Oarmv8a_add_large_imm], which
-   materializes the immediate with a MOVZ/MOVK sequence at assembly
+(* Additions and subtractions of 64-bit immediates that do not fit the
+   12-bit (optionally shifted) encoding go through [Oarmv8a_add_large_imm],
+   which materializes the immediate with a MOVZ/MOVK sequence at assembly
    generation. *)
-Definition large_arith_imm (mn : armv8a_mnemonic) (es : pexprs) : option Z :=
+Definition large_arith_imm (ws : wsize) (mn : armv8a_mnemonic) (es : pexprs) : option Z :=
+  let%opt _ := oassert (ws == U64) in
   let%opt e := if es is [:: e ] then Some e else None in
   let%opt c := is_wconst U64 e in
   let n := wunsigned c in
@@ -282,7 +342,7 @@ Definition large_arith_imm (mn : armv8a_mnemonic) (es : pexprs) : option Z :=
 Definition lower_Papp2
   (ws : wsize) (op : sop2) (e0 e1 : pexpr) : low_expr :=
   let%opt (mn, e0', e1') := lower_Papp2_op ws op e0 e1 in
-  if large_arith_imm mn e1' is Some imm
+  if large_arith_imm ws mn e1' is Some imm
   then le_issue_extra Oarmv8a_add_large_imm [:: e0'; wconst (wrepr U64 imm) ]
   else
     let '(aop, es) := arg_shift mn ws e1' in
@@ -309,7 +369,7 @@ Definition lower_Pif
   let%opt _ := chk_ws_reg ws in
   let%opt _ := oassert (is_csel_arg e0 && is_csel_arg e1) in
   let '(pre, c') := lower_condition vi c in
-  Some (pre, Oarmv8a (ARMv8A_op CSEL default_opts), [:: e0; e1; c' ]).
+  Some (pre, Oarmv8a (ARMv8A_op CSEL (opts_at ws)), [:: e0; e1; c' ]).
 
 Definition lower_pexpr (vi : var_info) (ws : wsize) (e : pexpr) :
   option (seq instr_r * sopn * seq pexpr) :=
@@ -327,8 +387,9 @@ Definition lower_pexpr (vi : var_info) (ws : wsize) (e : pexpr) :
    - [e] must be a register. *)
 Definition lower_store (ws : wsize) (e : pexpr) : option (armv8a_asm_op * seq pexpr) :=
   let%opt mn := store_mn_of_wsize ws in
+  let osz := if (ws <= U16)%CMP then U64 else ws in
   match e with
-  | Pvar _ => Some (ARMv8A_op mn default_opts, [:: e ])
+  | Pvar _ => Some (ARMv8A_op mn (opts_at osz), [:: e ])
   | _ => None
   end.
 
@@ -375,11 +436,12 @@ Definition lower_add_carry
   end.
 
 Definition with_shift (opts : armv8a_options) sh :=
-  {| has_shift := Some sh; |}.
+  {| has_shift := Some sh; opts_size := opts_size opts; |}.
 
 Definition lower_base_op
   (lvs : seq lval) (aop : armv8a_asm_op) (es : seq pexpr) : option copn_args :=
   let: ARMv8A_op mn opts := aop in
+  let ws := opts_size opts in
   if has_shift opts != None
   then
     let%opt _ := oassert (mn \in has_shift_mnemonics) in
@@ -389,7 +451,7 @@ Definition lower_base_op
     then
       match es with
       | x :: rest =>
-          if get_arg_shift U64 [:: x ] is Some (ebase, sh, esham)
+          if get_arg_shift ws [:: x ] is Some (ebase, sh, esham)
           then Some (lvs, Oasm (BaseOp (None, ARMv8A_op mn (with_shift opts sh))), ebase :: esham :: rest)
           else Some (lvs, Oasm (BaseOp (None, ARMv8A_op mn opts)), es)
       | _ => None end
@@ -397,7 +459,7 @@ Definition lower_base_op
     then
       match es with
       | x :: y :: rest =>
-          if get_arg_shift U64 [:: y ] is Some (ebase, sh, esham)
+          if get_arg_shift ws [:: y ] is Some (ebase, sh, esham)
           then Some (lvs, Oasm (BaseOp (None, ARMv8A_op mn (with_shift opts sh))), x :: ebase :: esham :: rest)
           else Some (lvs, Oasm (BaseOp (None, ARMv8A_op mn opts)), es)
       | _ => None end

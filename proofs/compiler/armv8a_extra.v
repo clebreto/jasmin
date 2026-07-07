@@ -135,12 +135,14 @@ Definition smart_li_args ii ws les res :=
      register size, it should not be the case. *)
   Let _ :=
     assert
-      (ws == reg_size)
-      (E.error ii "smart immediate assignment is only valid for u64 variables")
+      ((ws == U64) || (ws == U32))
+      (E.error ii "smart immediate assignment is only valid for u64 and u32 variables")
   in
   Let: (x, les) := uncons_LLvar ii les in
+  (* After register allocation the destination is a machine register
+     variable, whose type is always the full register size. *)
   Let _ :=
-    assert (convertible (vtype (v_var x)) (aword ws)) (E.internal_error ii "invalid type")
+    assert (convertible (vtype (v_var x)) (aword reg_size)) (E.internal_error ii "invalid type")
   in
   Let _ := assert (nilp les) (E.internal_error ii "invalid lvals") in
   Let: (imm, res) := uncons_wconst ii res in
@@ -148,7 +150,7 @@ Definition smart_li_args ii ws les res :=
 
 Definition assemble_smart_li ii ws les res :=
   Let: (x, imm, _) := smart_li_args ii ws les res in
-  ok (asm_args_of_opn_args (ARMv8AFopn_core.li x imm)).
+  ok (asm_args_of_opn_args (ARMv8AFopn_core.li ws x imm)).
 
 Definition assemble_extra
            (ii: instr_info)
