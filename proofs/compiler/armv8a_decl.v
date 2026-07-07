@@ -2,7 +2,7 @@
 
  * Description of the A64 base architecture (no SIMD/FP, no extensions).
  * General-purpose registers are modeled at their full 64-bit width (X
- * registers); the 32-bit W views are not modeled.
+ * registers); instructions come in 64-bit (X) and 32-bit (W) forms.
  *)
 From elpi.apps Require Import derive.std.
 From mathcomp Require Import ssreflect ssrfun ssrbool eqtype fintype ssralg.
@@ -199,7 +199,7 @@ Definition string_of_condt (c : condt) : string :=
 (* Register shifts.
  * Data-processing (shifted register) instructions can shift a register
  * operand before performing the operation. The shift amount ranges over
- * 0..63 for 64-bit operands. *)
+ * 0..63 for 64-bit operands and 0..31 for 32-bit operands. *)
 
 #[ export ]
 Instance eqTC_shift_kind : eqTypeC shift_kind :=
@@ -218,8 +218,8 @@ Definition string_of_shift_kind (sk : shift_kind) : string :=
   | SROR => "ror"
   end.
 
-Definition check_shift_amount (z : Z) : bool :=
-  (0 <=? z)%Z && (z <=? 63)%Z.
+Definition check_shift_amount (ws : wsize) (z : Z) : bool :=
+  (0 <=? z)%Z && (z <? wsize_bits ws)%Z.
 
 Definition shift_op (sk : shift_kind) :
   forall (sz : wsize), word sz -> Z -> word sz :=
@@ -231,12 +231,12 @@ Definition shift_op (sk : shift_kind) :
   end.
 
 Definition shift_of_sop2 (ws : wsize) (op : sop2) : option shift_kind :=
-  let%opt _ := oassert (ws == U64) in
+  let%opt _ := oassert ((ws == U64) || (ws == U32)) in
   match op with
-  | Olsl (Op_w U64) => Some SLSL
-  | Olsr U64 => Some SLSR
-  | Oasr (Op_w U64) => Some SASR
-  | Oror U64 => Some SROR
+  | Olsl (Op_w ws') => if ws' == ws then Some SLSL else None
+  | Olsr ws' => if ws' == ws then Some SLSR else None
+  | Oasr (Op_w ws') => if ws' == ws then Some SASR else None
+  | Oror ws' => if ws' == ws then Some SROR else None
   | _ => None
   end.
 
@@ -276,7 +276,7 @@ Notation xregister := empty.
 Definition armv8a_check_CAimm (checker : caimm_checker_s) ws (w : word ws) : bool :=
   match checker with
   | CAimmC_none => true
-  | CAimmC_armv8a_shift_amount => check_shift_amount (wunsigned w)
+  | CAimmC_armv8a_shift_amount ws' => check_shift_amount ws' (wunsigned w)
   | CAimmC_armv8a_0_16_32_48 => let x := wunsigned w in x \in [:: 0; 16; 32; 48 ]%Z
   | CAimmC_arm_shift_amout _ | CAimmC_arm_wencoding _ | CAimmC_arm_0_8_16_24 => false
   | CAimmC_riscv_12bits_signed | CAimmC_riscv_5bits_unsigned => false

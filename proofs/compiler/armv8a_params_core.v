@@ -54,17 +54,20 @@ Module ARMv8AFopn_core.
 
   Definition andi := op_bin_imm AND.
 
+  Let op_gen_at ws mn x res : opn_args :=
+    ([:: LLvar x ], ARMv8A_op mn (opts_at ws), res).
+
   (* [MOVZ x, #imm, LSL #sh]: set [x] to [imm << sh], zeroing the rest. *)
-  Definition movz x imm sh :=
-    op_gen MOVZ x [:: rconst U16 imm; rconst U8 sh ].
+  Definition movz ws x imm sh :=
+    op_gen_at ws MOVZ x [:: rconst U16 imm; rconst U8 sh ].
 
   (* [MOVN x, #imm, LSL #sh]: set [x] to [NOT (imm << sh)]. *)
-  Definition movn x imm sh :=
-    op_gen MOVN x [:: rconst U16 imm; rconst U8 sh ].
+  Definition movn ws x imm sh :=
+    op_gen_at ws MOVN x [:: rconst U16 imm; rconst U8 sh ].
 
   (* [MOVK x, #imm, LSL #sh]: insert [imm] at bits [sh+15:sh] of [x]. *)
-  Definition movk x imm sh :=
-    op_gen MOVK x [:: rvar x; rconst U16 imm; rconst U8 sh ].
+  Definition movk ws x imm sh :=
+    op_gen_at ws MOVK x [:: rvar x; rconst U16 imm; rconst U8 sh ].
 
   Definition str x y off :=
     let lv := lstore Aligned reg_size y off in
@@ -76,26 +79,26 @@ Module ARMv8AFopn_core.
   Definition align x y al := andi x y (Z_mod_lnot (wsize_size al - 1) reg_size).
 
   (* Load an immediate to a register with a MOVZ/MOVK sequence.
-     A single MOVN covers the values whose upper three 16-bit chunks are
-     all ones. In the general case, the low 16-bit chunk is set with MOVZ
+     A single MOVN covers the values whose upper 16-bit chunks are all
+     ones. In the general case, the low 16-bit chunk is set with MOVZ
      (which zeroes the rest of the register) and every non-zero higher
      chunk is inserted with MOVK. *)
-  Definition li x imm : seq opn_args :=
-    let n := imm mod (wbase U64) in
+  Definition li (ws : wsize) x imm : seq opn_args :=
+    let n := imm mod (wbase ws) in
     if n <? 2 ^ 16
-    then [:: movz x n 0 ]
+    then [:: movz ws x n 0 ]
     else
-      if wbase U64 - 2 ^ 16 <=? n
-      then [:: movn x (Z_mod_lnot n U64) 0 ]
+      if wbase ws - 2 ^ 16 <=? n
+      then [:: movn ws x (Z_mod_lnot n ws) 0 ]
       else
         let c0 := n mod (2 ^ 16) in
         let c1 := (n / 2 ^ 16) mod (2 ^ 16) in
         let c2 := (n / 2 ^ 32) mod (2 ^ 16) in
         let c3 := (n / 2 ^ 48) mod (2 ^ 16) in
-        [:: movz x c0 0 ]
-          ++ (if c1 =? 0 then [::] else [:: movk x c1 16 ])
-          ++ (if c2 =? 0 then [::] else [:: movk x c2 32 ])
-          ++ (if c3 =? 0 then [::] else [:: movk x c3 48 ]).
+        [:: movz ws x c0 0 ]
+          ++ (if c1 =? 0 then [::] else [:: movk ws x c1 16 ])
+          ++ (if (c2 =? 0) || (ws != U64) then [::] else [:: movk ws x c2 32 ])
+          ++ (if (c3 =? 0) || (ws != U64) then [::] else [:: movk ws x c3 48 ]).
 
   Definition smart_mov x y :=
     if v_var x == v_var y then [::] else [:: mov x y ].
@@ -116,7 +119,7 @@ Module ARMv8AFopn_core.
     else
       if is_small imm
       then [:: on_imm x y imm ]
-      else rcons (li tmp imm) (on_reg x y tmp).
+      else rcons (li U64 tmp imm) (on_reg x y tmp).
 
   (* Compute [R[x] := R[y] + imm % 2^64].
      Precondition: if [imm] is large, [x <> y]. *)

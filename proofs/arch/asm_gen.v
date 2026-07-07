@@ -470,7 +470,8 @@ Definition pp_caimm_checker_s checker :=
     [:: pp_s "(shift ="; pp_s (string_of_ew (on_shift ew));
         pp_s ", none ="; pp_s (string_of_ew (on_none ew )); pp_s ")"]
   | CAimmC_arm_0_8_16_24 => [:: pp_s "[0;8;16;24]"]
-  | CAimmC_armv8a_shift_amount => [:: pp_s "[0, 63]"]
+  | CAimmC_armv8a_shift_amount ws =>
+    [:: pp_s "["; pp_z 0; pp_s ","; pp_z (wsize_bits ws - 1); pp_s "]" ]
   | CAimmC_armv8a_0_16_32_48 => [:: pp_s "[0;16;32;48]"]
   | CAimmC_riscv_12bits_signed => [:: pp_s "[-2048, 2047]"]
   | CAimmC_riscv_5bits_unsigned => [:: pp_s "[0, 31]"]

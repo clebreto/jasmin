@@ -88,7 +88,7 @@ Definition armv8a_mov_ofs
                 (* we have a special case to avoid a trivial shift of 0 *)
                 mk (ADD, [:: Plvar base; Plvar off ])
               else
-                let opts := {| has_shift := Some SLSL |} in
+                let opts := {| has_shift := Some SLSL; opts_size := U64 |} in
                 Some (Copn [:: x ] tag (Oarmv8a (ARMv8A_op ADD opts)) [:: Plvar base; Plvar off; eword_of_int U8 scale ])
             else None
           end

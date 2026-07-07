@@ -55,7 +55,7 @@ Inductive caimm_checker_s :=
   | CAimmC_arm_shift_amout of shift_kind
   | CAimmC_arm_wencoding   of expected_wencoding
   | CAimmC_arm_0_8_16_24
-  | CAimmC_armv8a_shift_amount
+  | CAimmC_armv8a_shift_amount of wsize
   | CAimmC_armv8a_0_16_32_48
   | CAimmC_riscv_12bits_signed
   | CAimmC_riscv_5bits_unsigned.

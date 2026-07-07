@@ -229,7 +229,9 @@ module Armv8aTarget : AsmTargetBuilder.AsmTarget with
               List.filter_map
                 (fun x -> x)
                 (List.mapi
-                   (fun i (_, a) -> pp_asm_arg ~wform:(List.mem i wpos) a)
+                   (fun i (sz, a) ->
+                     let w32 = match sz with Wsize.U32 -> true | _ -> false in
+                     pp_asm_arg ~wform:(w32 || List.mem i wpos) a)
                    pp.pp_aop_args)
             in
             let pargs =
