@@ -57,6 +57,15 @@ compiler/arm_lowering.v
 compiler/arm_lowering_proof.v
 compiler/arm_params.v
 compiler/arm_params_proof.v
+compiler/armv8a_decl.v
+compiler/armv8a.v
+compiler/armv8a_instr_decl.v
+compiler/armv8a_extra.v
+compiler/armv8a_params_core.v
+compiler/armv8a_lowering.v
+compiler/armv8a_stack_zeroization.v
+compiler/armv8a_params.v
+
 compiler/arm_params_common.v
 compiler/arm_params_common_proof.v
 compiler/arm_params_core.v

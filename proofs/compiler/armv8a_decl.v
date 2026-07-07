@@ -1,3 +1,9 @@
+(* ARMv8-A (AArch64) architecture declaration.
+
+ * Description of the A64 base architecture (no SIMD/FP, no extensions).
+ * General-purpose registers are modeled at their full 64-bit width (X
+ * registers); the 32-bit W views are not modeled.
+ *)
 From elpi.apps Require Import derive.std.
 From mathcomp Require Import ssreflect ssrfun ssrbool eqtype fintype ssralg.
 From mathcomp Require Import word_ssrZ.
@@ -9,43 +15,48 @@ Require Import
   shift_kind
   strings
   utils
-  wsize.
+  wsize
+  word.
 
 Require Import
   arch_decl
   arch_utils.
 
-Require Export arm_expand_imm.
-
-(* ARM Cortex-M4 architecture
-
- * The ARM Cortex-M4 processor implements the ARMv7-M ISA.
- * This is a description of the base architecture (no extensions).
- *)
-
 (* --------------------------------------------- *)
-Definition arm_reg_size  := U32.
-Definition arm_xreg_size := U64.
+Definition armv8a_reg_size  := U64.
+Definition armv8a_xreg_size := U128.
 
 (* -------------------------------------------------------------------- *)
-(* Registers. *)
+(* Registers.
+   [R0]..[R30] are the general-purpose registers X0..X30.
+   [RZR] is the zero register XZR and [RSP] the stack pointer SP; both use
+   register encoding 31, the instruction determines which one is meant. *)
 
 #[only(eqbOK)] derive
 Variant register : Type :=
-| R00 | R01 | R02 | R03         (* Lower general-purpose registers. *)
-| R04 | R05 | R06 | R07         (* Lower general-purpose registers. *)
-| R08 | R09 | R10 | R11 | R12   (* Higher general-purpose registers. *)
-| LR                            (* Subroutine link register. *)
-| SP.                           (* Stack pointer. *)
+| R0 | R1 | R2 | R3 | R4 | R5 | R6 | R7
+| R8 | R9 | R10 | R11 | R12 | R13 | R14 | R15
+| R16 | R17 | R18
+| R19 | R20 | R21 | R22 | R23 | R24
+| R25 | R26 | R27 | R28
+| R29                           (* Frame pointer. *)
+| R30                           (* Link register. *)
+| RZR                           (* Zero register. *)
+| RSP.                          (* Stack pointer. *)
 
 #[ export ]
 Instance eqTC_register : eqTypeC register :=
   { ceqP := register_eqb_OK }.
 
-Canonical arm_register_eqType := @ceqT_eqType _ eqTC_register.
+Canonical armv8a_register_eqType := @ceqT_eqType _ eqTC_register.
 
 Definition registers :=
-  [:: R00; R01; R02; R03; R04; R05; R06; R07; R08; R09; R10; R11; R12; LR; SP ].
+  [:: R0; R1; R2; R3; R4; R5; R6; R7;
+      R8; R9; R10; R11; R12; R13; R14; R15;
+      R16; R17; R18;
+      R19; R20; R21; R22; R23; R24;
+      R25; R26; R27; R28;
+      R29; R30; RZR; RSP ].
 
 Lemma register_fin_axiom : Finite.axiom registers.
 Proof. by case. Qed.
@@ -59,27 +70,23 @@ Instance finTC_register : finTypeC register :=
 
 Canonical register_finType := @cfinT_finType _ finTC_register.
 
-Definition register_to_string (r: register) : string :=
+Definition register_to_string (r : register) : string :=
   match r with
-  | R00 => "r0"
-  | R01 => "r1"
-  | R02 => "r2"
-  | R03 => "r3"
-  | R04 => "r4"
-  | R05 => "r5"
-  | R06 => "r6"
-  | R07 => "r7"
-  | R08 => "r8"
-  | R09 => "r9"
-  | R10 => "r10"
-  | R11 => "r11"
-  | R12 => "r12"
-  | LR  => "lr"
-  | SP  => "sp"
+  | R0 => "x0"   | R1 => "x1"   | R2 => "x2"   | R3 => "x3"
+  | R4 => "x4"   | R5 => "x5"   | R6 => "x6"   | R7 => "x7"
+  | R8 => "x8"   | R9 => "x9"   | R10 => "x10" | R11 => "x11"
+  | R12 => "x12" | R13 => "x13" | R14 => "x14" | R15 => "x15"
+  | R16 => "x16" | R17 => "x17" | R18 => "x18"
+  | R19 => "x19" | R20 => "x20" | R21 => "x21" | R22 => "x22"
+  | R23 => "x23" | R24 => "x24" | R25 => "x25" | R26 => "x26"
+  | R27 => "x27" | R28 => "x28"
+  | R29 => "x29" | R30 => "x30"
+  | RZR => "xzr"
+  | RSP => "sp"
   end.
 
 #[ export ]
-Instance reg_toS : ToString (lword arm_reg_size) register :=
+Instance reg_toS : ToString (lword armv8a_reg_size) register :=
   {| category  := "register"
    ; to_string := register_to_string
   |}.
@@ -90,7 +97,7 @@ Instance reg_toS : ToString (lword arm_reg_size) register :=
 #[only(eqbOK)] derive
 Variant rflag : Type :=
 | NF    (* Negative condition flag. *)
-| ZF    (* Zero confition flag. *)
+| ZF    (* Zero condition flag. *)
 | CF    (* Carry condition flag. *)
 | VF.   (* Overflow condition flag. *)
 
@@ -107,10 +114,7 @@ Proof. by case. Qed.
 
 #[ export ]
 Instance finTC_rflag : finTypeC rflag :=
-  {
-    cenum  := rflags;
-    cenumP := rflag_fin_axiom;
-  }.
+  { cenum := rflags; cenumP := rflag_fin_axiom }.
 
 Canonical rflag_finType := @cfinT_finType _ finTC_rflag.
 
@@ -129,24 +133,26 @@ Instance rflag_toS : ToString lbool rflag :=
   }.
 
 (* -------------------------------------------------------------------- *)
-(* Conditions. *)
+(* Conditions.
+   Condition codes for conditional instructions (ARM ARM DDI0487 M.a,
+   section C1.2.4 "Condition code"). *)
 
 #[only(eqbOK)] derive
 Variant condt : Type :=
-| EQ_ct    (* Equal. *)
-| NE_ct    (* Not equal. *)
-| CS_ct    (* Carry set. *)
-| CC_ct    (* Carry clear. *)
-| MI_ct    (* Minus, negative. *)
-| PL_ct    (* Plus, positive or zero. *)
-| VS_ct    (* Overflow. *)
-| VC_ct    (* No overflow. *)
-| HI_ct    (* Unsigned higher. *)
-| LS_ct    (* Unsigned lower or same. *)
-| GE_ct    (* Signed greater than or equal. *)
-| LT_ct    (* Signed less than. *)
-| GT_ct    (* Signed greater than. *)
-| LE_ct.   (* Signed less than or equal. *)
+| EQ_ct    (* Equal (Z == 1). *)
+| NE_ct    (* Not equal (Z == 0). *)
+| CS_ct    (* Carry set, unsigned higher or same (C == 1). *)
+| CC_ct    (* Carry clear, unsigned lower (C == 0). *)
+| MI_ct    (* Minus, negative (N == 1). *)
+| PL_ct    (* Plus, positive or zero (N == 0). *)
+| VS_ct    (* Overflow (V == 1). *)
+| VC_ct    (* No overflow (V == 0). *)
+| HI_ct    (* Unsigned higher (C == 1 && Z == 0). *)
+| LS_ct    (* Unsigned lower or same (C == 0 || Z == 1). *)
+| GE_ct    (* Signed greater than or equal (N == V). *)
+| LT_ct    (* Signed less than (N != V). *)
+| GT_ct    (* Signed greater than (Z == 0 && N == V). *)
+| LE_ct.   (* Signed less than or equal (Z == 1 || N != V). *)
 
 #[ export ]
 Instance eqTC_condt : eqTypeC condt :=
@@ -189,11 +195,11 @@ Definition string_of_condt (c : condt) : string :=
   | LE_ct => "le"
   end.
 
-
 (* -------------------------------------------------------------------- *)
 (* Register shifts.
- * Some instructions can shift a register before performing an operation.
- *)
+ * Data-processing (shifted register) instructions can shift a register
+ * operand before performing the operation. The shift amount ranges over
+ * 0..63 for 64-bit operands. *)
 
 #[ export ]
 Instance eqTC_shift_kind : eqTypeC shift_kind :=
@@ -212,12 +218,11 @@ Definition string_of_shift_kind (sk : shift_kind) : string :=
   | SROR => "ror"
   end.
 
-Definition check_shift_amount (sk: shift_kind) (z: Z) : bool :=
-  let: (lo, hi) := shift_amount_bounds sk in
-  (lo <=? z)%Z && (z <=? hi)%Z.
+Definition check_shift_amount (z : Z) : bool :=
+  (0 <=? z)%Z && (z <=? 63)%Z.
 
-Definition shift_op (sk: shift_kind) :
-  forall (sz: wsize), word sz -> Z -> word sz :=
+Definition shift_op (sk : shift_kind) :
+  forall (sz : wsize), word sz -> Z -> word sz :=
   match sk with
   | SLSL => wshl
   | SLSR => wshr
@@ -226,26 +231,24 @@ Definition shift_op (sk: shift_kind) :
   end.
 
 Definition shift_of_sop2 (ws : wsize) (op : sop2) : option shift_kind :=
-  let%opt _ := oassert (ws == U32) in
+  let%opt _ := oassert (ws == U64) in
   match op with
-  | Olsl (Op_w U32) => Some SLSL
-  | Olsr U32 => Some SLSR
-  | Oasr (Op_w U32) => Some SASR
-  | Oror U32 => Some SROR
+  | Olsl (Op_w U64) => Some SLSL
+  | Olsr U64 => Some SLSR
+  | Oasr (Op_w U64) => Some SASR
+  | Oror U64 => Some SROR
   | _ => None
   end.
 
 (* -------------------------------------------------------------------- *)
 (* Flag combinations.
-   The ARM terminology is different from Intel's (chapter A7.3 from the
-   ARMv7-M reference manual).
    - [CFC_B] is Carry clear (unsigned lower).
    - [CFC_E] is Equal.
    - [CFC_L] is Signed less than.
    - [CFC_BE] is Unsigned lower or same.
    - [CFC_LE] is Signed less than or equal. *)
 
-Definition arm_fc_of_cfc (cfc : combine_flags_core) : flag_combination :=
+Definition armv8a_fc_of_cfc (cfc : combine_flags_core) : flag_combination :=
   let vnf := FCVar0 in
   let vzf := FCVar1 in
   let vcf := FCVar2 in
@@ -259,11 +262,10 @@ Definition arm_fc_of_cfc (cfc : combine_flags_core) : flag_combination :=
   end.
 
 #[global]
-Instance arm_fcp : FlagCombinationParams :=
+Instance armv8a_fcp : FlagCombinationParams :=
   {
-    fc_of_cfc := arm_fc_of_cfc;
+    fc_of_cfc := armv8a_fc_of_cfc;
   }.
-
 
 (* -------------------------------------------------------------------- *)
 (* Architecture declaration. *)
@@ -271,59 +273,53 @@ Instance arm_fcp : FlagCombinationParams :=
 Notation register_ext := empty.
 Notation xregister := empty.
 
-Definition arm_check_CAimm (checker : caimm_checker_s) ws (w : word ws) : bool :=
+Definition armv8a_check_CAimm (checker : caimm_checker_s) ws (w : word ws) : bool :=
   match checker with
   | CAimmC_none => true
-  | CAimmC_arm_shift_amout sk => check_shift_amount sk (wunsigned w)
-  | CAimmC_arm_wencoding ew => check_ei_kind ew w
-  | CAimmC_arm_0_8_16_24 => let x := wunsigned w in x \in [::0;8;16;24]%Z
-  | CAimmC_armv8a_shift_amount | CAimmC_armv8a_0_16_32_48 => false
+  | CAimmC_armv8a_shift_amount => check_shift_amount (wunsigned w)
+  | CAimmC_armv8a_0_16_32_48 => let x := wunsigned w in x \in [:: 0; 16; 32; 48 ]%Z
+  | CAimmC_arm_shift_amout _ | CAimmC_arm_wencoding _ | CAimmC_arm_0_8_16_24 => false
   | CAimmC_riscv_12bits_signed | CAimmC_riscv_5bits_unsigned => false
   end.
 
 #[ export ]
-Instance arm_decl : arch_decl register register_ext xregister rflag condt :=
-  { reg_size  := arm_reg_size
-  ; xreg_size := arm_xreg_size
+Instance armv8a_decl : arch_decl register register_ext xregister rflag condt :=
+  { reg_size  := armv8a_reg_size
+  ; xreg_size := armv8a_xreg_size
   ; cond_eqC  := eqTC_condt
   ; toS_r     := reg_toS
-  ; toS_rx    := empty_toS lword32
-  ; toS_x     := empty_toS lword64
+  ; toS_rx    := empty_toS lword64
+  ; toS_x     := empty_toS lword128
   ; toS_f     := rflag_toS
   ; reg_size_neq_xreg_size := refl_equal
-  ; ad_rsp := SP
-  ; ad_fcp := arm_fcp
-  ; check_CAimm := arm_check_CAimm
+  ; ad_rsp := RSP
+  ; ad_fcp := armv8a_fcp
+  ; check_CAimm := armv8a_check_CAimm
   }.
 
-Definition arm_linux_call_conv : calling_convention :=
+(* -------------------------------------------------------------------- *)
+(* Calling convention (AAPCS64). *)
+
+Definition armv8a_linux_call_conv : calling_convention :=
   {| callee_saved :=
-      map ARReg [:: R04; R05; R06; R07; R08; R09; R10; R11; SP ]
+      map ARReg [:: R19; R20; R21; R22; R23; R24; R25; R26; R27; R28
+                  ; R29; RSP ]
    ; callee_saved_not_bool := erefl true
    ; callee_saved_has_rsp  := erefl true
-   ; call_reg_args  := [:: R00; R01; R02; R03 ]
+   ; call_reg_args  := [:: R0; R1; R2; R3; R4; R5; R6; R7 ]
    ; call_xreg_args := [::]
-   ; call_reg_ret   := [:: R00; R01 ]
+   ; call_reg_ret   := [:: R0; R1 ]
    ; call_xreg_ret  := [::]
-   ; call_reg_ret_uniq := erefl true;
-  |}.
+   ; call_reg_ret_uniq := erefl true
+   |}.
 
-Definition is_expandable (n : Z) : bool :=
-  match ei_kind n with
-  | EI_byte | EI_pattern => true
-  | EI_shift | EI_none => false
-  end.
-
-Definition is_expandable_or_shift (n : Z) : bool :=
-   match ei_kind n with
-   | EI_byte | EI_pattern | EI_shift => true
-   | EI_none => false
-  end.
-
-
-
-Definition arm_internal_call_conv : internal_calling_convention :=
-  {| icall_reg   := [:: R00; R01; R02; R03; R04; R05; R06; R07; R08; R09; R10; R11; R12]
+Definition armv8a_internal_call_conv : internal_calling_convention :=
+  {| icall_reg   :=
+      [:: R0; R1; R2; R3; R4; R5; R6; R7;
+          R8; R9; R10; R11; R12; R13; R14; R15;
+          R16; R17; R18;
+          R19; R20; R21; R22; R23; R24;
+          R25; R26; R27; R28; R29 ]
    ; icall_regx  := [::]
    ; icall_xreg  := [::]
    ; icall_rflag := [:: CF; NF; ZF; VF ]
