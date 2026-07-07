@@ -1,0 +1,15 @@
+export
+fn shift(reg u64 arg0, reg u64 arg1) -> reg u64 {
+    reg u64 x;
+
+    x = arg0 << 1;
+    x = x << 63;
+    x = x >> 2;
+    x = x >>s 3;
+    x = x << arg1;           // Variable shifts.
+    x = x >> arg1;
+    x = x >>s arg1;
+    x = #ROR(x, 7);
+    x = #EXTR(x, arg0, 13);
+    return x;
+}

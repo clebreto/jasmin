@@ -17,6 +17,7 @@ CHECKCATS ?= \
 	arm-m4-stack-zero-unrolled \
 	risc-v-stack-zero-loop \
 	risc-v-stack-zero-unrolled \
+	armv8a \
 	CCT CCT-DOIT SCT
 
 # --------------------------------------------------------------------

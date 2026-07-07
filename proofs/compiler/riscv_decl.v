@@ -149,7 +149,8 @@ Definition riscv_check_CAimm (checker : caimm_checker_s) ws (w : word ws) : bool
   | CAimmC_riscv_5bits_unsigned =>
      let i := wunsigned w in
      (i <=? 31)%Z
-  | CAimmC_arm_shift_amout _ | CAimmC_arm_wencoding _ | CAimmC_arm_0_8_16_24 => false
+  | CAimmC_arm_shift_amout _ | CAimmC_arm_wencoding _ | CAimmC_arm_0_8_16_24
+  | CAimmC_armv8a_shift_amount | CAimmC_armv8a_0_16_32_48 => false
   end.
 
 #[ export ]
