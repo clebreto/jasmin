@@ -60,7 +60,18 @@ Definition rtype {t T} `{ToString t T} := t.
    - [CAimmC_armv8a_shift_amount] carries a [wsize]: on AArch64 the amount range
      is [0, datasize) for every shift type, but there are two operand widths
      (W = 32, X = 64). See [check_shift_amount] (armv8a_decl.v), grounded in the
-     C6.2 shifted-register decode. *)
+     C6.2 shifted-register decode.
+   The AArch64 immediate-encoding checkers take the operand width from the
+   [wsize] of the immediate itself (the [CAimm] argument kind carries it), so
+   they need no payload:
+   - [CAimmC_armv8a_arith_imm]: 12-bit unsigned immediate, optionally shifted
+     left by 12 (ADD/SUB/CMP/CMN immediate class, C6.2.5).
+   - [CAimmC_armv8a_bitmask_imm]: logical (bitmask) immediates — a run of ones
+     rotated within an element of 2/4/8/16/32/64 bits, replicated across the
+     operand (AND/ORR/EOR/ANDS/TST immediate class, DecodeBitMasks, J1.1).
+   - [CAimmC_armv8a_mov_imm]: immediates accepted by the MOV alias — a wide
+     immediate (MOVZ), an inverted wide immediate (MOVN) or a bitmask
+     immediate (ORR), C6.2.192–C6.2.194. *)
 #[only(eqbOK)] derive
 Inductive caimm_checker_s :=
   | CAimmC_none
@@ -69,6 +80,9 @@ Inductive caimm_checker_s :=
   | CAimmC_arm_0_8_16_24
   | CAimmC_armv8a_shift_amount of wsize
   | CAimmC_armv8a_0_16_32_48
+  | CAimmC_armv8a_arith_imm
+  | CAimmC_armv8a_bitmask_imm
+  | CAimmC_armv8a_mov_imm
   | CAimmC_riscv_12bits_signed
   | CAimmC_riscv_5bits_unsigned.
 

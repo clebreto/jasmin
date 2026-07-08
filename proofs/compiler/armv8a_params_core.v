@@ -19,10 +19,10 @@ Require Import
 
 (* An immediate is directly encodable in an ADD/SUB immediate instruction if
    it is a 12-bit unsigned immediate, optionally shifted left by 12 bits
-   (ARM DDI 0487 M.a, C6.2.5 ADD (immediate)). *)
-Definition is_arith_small (imm : Z) : bool :=
-  [&& 0 <=? imm & imm <? 4096]%Z
-  || [&& 0 <=? imm, imm <? 4096 * 4096 & imm mod 4096 =? 0]%Z.
+   (ARM DDI 0487 M.a, C6.2.5 ADD (immediate)). This is the same predicate
+   the [CAimmC_armv8a_arith_imm] argument checker enforces at assembly
+   generation. *)
+Definition is_arith_small (imm : Z) : bool := is_arith_imm imm.
 
 Definition Z_mod_lnot (z : Z) (ws : wsize) : Z :=
   let m := wbase ws in

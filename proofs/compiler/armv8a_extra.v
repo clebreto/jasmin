@@ -131,8 +131,9 @@ Definition uncons_wconst
   else Error (E.internal_error ii "invalid arguments").
 
 Definition smart_li_args ii ws les res :=
-  (* FIXME: This check is because [ARMv8AFopn_core.li] only works with
-     register size, it should not be the case. *)
+  (* [ARMv8AFopn_core.li] materializes immediates at the two A64 operand
+     widths (X and W); other sizes have no MOVZ/MOVK form, so they are
+     rejected here by design. *)
   Let _ :=
     assert
       ((ws == U64) || (ws == U32))
