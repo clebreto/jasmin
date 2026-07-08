@@ -307,6 +307,67 @@ Instance armv8a_fcp : FlagCombinationParams :=
   }.
 
 (* -------------------------------------------------------------------- *)
+(* Immediate encodings.
+
+   Executable versions of the A64 immediate-encoding rules, used by the
+   [CAimm] argument checkers so that assembly generation rejects operands
+   the assembler cannot encode. All predicates take the immediate as its
+   unsigned value ([wunsigned]) and, where the rule depends on it, the
+   operand width [ws]. *)
+
+(* [C6.2.5 ADD (immediate)] (ARM DDI 0487 M.a): a 12-bit unsigned
+   immediate, optionally shifted left by 12 bits. *)
+Definition is_arith_imm (z : Z) : bool :=
+  [&& 0 <=? z & z <? 4096]%Z
+  || [&& 0 <=? z, z <? 4096 * 4096 & z mod 4096 =? 0]%Z.
+
+(* Rotate [x] right by [r] within [e] bits.
+   Precondition: [0 <= x < 2^e] and [0 <= r <= e]. *)
+Definition z_rotr (e x r : Z) : Z :=
+  ((x / 2 ^ r) + (x mod 2 ^ r) * 2 ^ (e - r)) mod 2 ^ e.
+
+(* [y = 2^s - 1] for some [0 < s < e]: a contiguous run of ones starting
+   at bit 0, neither empty nor filling all [e] bits. The run shape is
+   equivalent to [y] and [y + 1] having no common bit. *)
+Definition is_ones_run (e y : Z) : bool :=
+  [&& 0 <? y, y <? 2 ^ e - 1 & Z.land y (y + 1) =? 0]%Z.
+
+(* [DecodeBitMasks] (ARM DDI 0487 M.a, aarch64/instrs/integer/bitmasks):
+   [x] is a logical (bitmask) immediate for operand width [ws] iff it is
+   the replication of an [e]-bit element ([e] in {2,4,8,16,32,64},
+   [e <= width]) that is a rotation of a contiguous run of ones (neither
+   zero nor all ones). Replication is tested as invariance under rotation
+   by [e]; the element is tested against every rotation, which is bounded
+   ([e <= 64]) so the predicate stays executable. *)
+Definition is_bitmask_imm (ws : wsize) (x : Z) : bool :=
+  let n := wsize_bits ws in
+  has
+    (fun e =>
+       [&& e <=? n,
+           z_rotr n x e =? x
+         & has
+             (fun r => is_ones_run e (z_rotr e (x mod 2 ^ e) r))
+             (map Z.of_nat (iota 0 (Z.to_nat e))) ])%Z
+    [:: 2; 4; 8; 16; 32; 64 ]%Z.
+
+(* MOV (wide immediate) [C6.2.193]: a 16-bit immediate at a 16-bit-aligned
+   position within the operand. *)
+Definition is_wide_imm (ws : wsize) (x : Z) : bool :=
+  has
+    (fun sh => (x mod 2 ^ sh =? 0) && (x / 2 ^ sh <? 2 ^ 16))%Z
+    (filter (fun sh => (sh <? wsize_bits ws)%Z) [:: 0; 16; 32; 48 ]%Z).
+
+(* Immediates accepted by the MOV alias [C6.2.192–C6.2.194]: a wide
+   immediate (MOVZ), an inverted wide immediate (MOVN) or a bitmask
+   immediate (ORR with the zero register). This accepts any value for
+   which one of the three encodings exists; the alias preferences that
+   pick among them only matter for disassembly. *)
+Definition is_mov_imm (ws : wsize) (x : Z) : bool :=
+  [|| is_wide_imm ws x,
+      is_wide_imm ws (Z.lnot x mod wbase ws)
+    | is_bitmask_imm ws x ].
+
+(* -------------------------------------------------------------------- *)
 (* Architecture declaration. *)
 
 Notation register_ext := empty.
@@ -317,6 +378,9 @@ Definition armv8a_check_CAimm (checker : caimm_checker_s) ws (w : word ws) : boo
   | CAimmC_none => true
   | CAimmC_armv8a_shift_amount ws' => check_shift_amount ws' (wunsigned w)
   | CAimmC_armv8a_0_16_32_48 => let x := wunsigned w in x \in [:: 0; 16; 32; 48 ]%Z
+  | CAimmC_armv8a_arith_imm => is_arith_imm (wunsigned w)
+  | CAimmC_armv8a_bitmask_imm => is_bitmask_imm ws (wunsigned w)
+  | CAimmC_armv8a_mov_imm => is_mov_imm ws (wunsigned w)
   | CAimmC_arm_shift_amout _ | CAimmC_arm_wencoding _ | CAimmC_arm_0_8_16_24 => false
   | CAimmC_riscv_12bits_signed | CAimmC_riscv_5bits_unsigned => false
   end.

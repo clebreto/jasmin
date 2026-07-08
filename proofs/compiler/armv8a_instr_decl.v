@@ -1285,25 +1285,34 @@ Notation osz_valid := ((osz == U32) || (osz == U64)) (only parsing).
 Notation msbf := (if osz == U64 then MSB_MERGE else MSB_CLEAR) (only parsing).
 
 (* Argument kinds.
-   Immediate operands are checked permissively ([CAimmC_none]): the
-   AArch64 immediate encoding rules (imm12 with optional LSL #12 for
-   arithmetic, bitmask immediates for logical instructions) are not
-   modeled yet. Immediates produced by the compiler itself go through
-   [ARMv8AFopn_core.li] which only emits encodable MOVZ/MOVK immediates. *)
+   Immediate operands are checked against the A64 encoding rules
+   (armv8a_decl.v): [CAimmC_armv8a_arith_imm] (imm12, optionally shifted
+   by 12) for the arithmetic class, [CAimmC_armv8a_bitmask_imm] for the
+   logical class, [CAimmC_armv8a_mov_imm] for the MOV alias. Instructions
+   without an immediate form (BIC, MVN, ...) only accept registers, which
+   the [option] parameter of [ak_rr_or_imm]/[ak_rrr_or_imm] expresses
+   with [None]. The immediate forms are only available without a shifted
+   operand. *)
 
 Let ak_rr := ak_reg_reg.
 Let ak_rrr := ak_reg_reg_reg.
 Let ak_rrrr := ak_reg_reg_reg_reg.
 
-Let ak_rr_or_imm :=
-  if has_shift opts
-  then ak_reg_reg
-  else ak_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAimm_sz osz ] ] ].
+Let ak_rr_or_imm (ick : option caimm_checker_s) :=
+  if ick is Some ic
+  then
+    if has_shift opts
+    then ak_reg_reg
+    else ak_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAimm ic osz ] ] ]
+  else ak_reg_reg.
 
-Let ak_rrr_or_imm :=
-  if has_shift opts
-  then ak_reg_reg_reg
-  else ak_reg_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAimm_sz osz ] ] ].
+Let ak_rrr_or_imm (ick : option caimm_checker_s) :=
+  if ick is Some ic
+  then
+    if has_shift opts
+    then ak_reg_reg_reg
+    else ak_reg_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAimm ic osz ] ] ]
+  else ak_reg_reg_reg.
 
 Let ak_rr_imm_shift :=
   [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAimm (CAimmC_armv8a_shift_amount osz) U8 ] ] ].
@@ -1334,7 +1343,10 @@ Let ak_rr_imm_imm_extr :=
 
 (* A binary data-processing instruction without flag outputs, accepting
    an optionally shifted register or an immediate as its last operand. *)
-Definition mk_arith_instr mn (semi : word osz -> word osz -> ty_w osz)
+(* [ick] is the immediate-encoding checker for the instruction's immediate
+   form ([None] for instructions with no immediate form). *)
+Definition mk_arith_instr mn (ick : option caimm_checker_s)
+  (semi : word osz -> word osz -> ty_w osz)
   : instr_desc_t :=
   let tin := [:: lword osz; lword osz ] in
   let x :=
@@ -1346,7 +1358,7 @@ Definition mk_arith_instr mn (semi : word osz -> word osz -> ty_w osz)
       id_out := [:: Ea 0 ];
       id_semi := sem_lprod_ok tin semi;
       id_nargs := 3;
-      id_args_kinds := ak_rrr_or_imm;
+      id_args_kinds := ak_rrr_or_imm ick;
       id_eq_size := refl_equal;
       id_check_dest := refl_equal;
       id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
@@ -1365,7 +1377,8 @@ Definition mk_arith_instr mn (semi : word osz -> word osz -> ty_w osz)
   else x.
 
 (* Same as [mk_arith_instr], with the NZCV flags as extra outputs. *)
-Definition mk_ariths_instr mn (semi : word osz -> word osz -> ty_nzcv_w osz)
+Definition mk_ariths_instr mn (ick : option caimm_checker_s)
+  (semi : word osz -> word osz -> ty_nzcv_w osz)
   : instr_desc_t :=
   let tin := [:: lword osz; lword osz ] in
   let x :=
@@ -1377,7 +1390,7 @@ Definition mk_ariths_instr mn (semi : word osz -> word osz -> ty_nzcv_w osz)
       id_out := ad_nzcv ++ [:: Ea 0 ];
       id_semi := sem_lprod_ok tin semi;
       id_nargs := 3;
-      id_args_kinds := ak_rrr_or_imm;
+      id_args_kinds := ak_rrr_or_imm ick;
       id_eq_size := refl_equal;
       id_check_dest := refl_equal;
       id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
@@ -1395,10 +1408,18 @@ Definition mk_ariths_instr mn (semi : word osz -> word osz -> ty_nzcv_w osz)
                        (fun h => mk_semi2_2_shifted_safe sk (x.(id_semi_safe) h))
   else x.
 
-Definition armv8a_ADD_instr : instr_desc_t := mk_arith_instr ADD armv8a_ADD_semi.
-Definition armv8a_ADDS_instr : instr_desc_t := mk_ariths_instr ADDS armv8a_ADDS_semi.
-Definition armv8a_SUB_instr : instr_desc_t := mk_arith_instr SUB armv8a_SUB_semi.
-Definition armv8a_SUBS_instr : instr_desc_t := mk_ariths_instr SUBS armv8a_SUBS_semi.
+Notation arith_imm := (Some CAimmC_armv8a_arith_imm) (only parsing).
+Notation bitmask_imm := (Some CAimmC_armv8a_bitmask_imm) (only parsing).
+Notation no_imm := (None : option caimm_checker_s) (only parsing).
+
+Definition armv8a_ADD_instr : instr_desc_t :=
+  mk_arith_instr ADD arith_imm armv8a_ADD_semi.
+Definition armv8a_ADDS_instr : instr_desc_t :=
+  mk_ariths_instr ADDS arith_imm armv8a_ADDS_semi.
+Definition armv8a_SUB_instr : instr_desc_t :=
+  mk_arith_instr SUB arith_imm armv8a_SUB_semi.
+Definition armv8a_SUBS_instr : instr_desc_t :=
+  mk_ariths_instr SUBS arith_imm armv8a_SUBS_semi.
 
 (* Add/subtract with carry (no shifted or immediate forms in A64). *)
 Definition mk_carry_instr mn (semi : word osz -> word osz -> bool -> ty_w osz)
@@ -1632,10 +1653,10 @@ Definition armv8a_SMULH_instr : instr_desc_t := mk_mulh_instr SMULH armv8a_SMULH
      X[d, datasize] = operand1 AND operand2;
 *)
 Definition armv8a_AND_instr : instr_desc_t :=
-  mk_arith_instr AND (armv8a_bitwise_semi id id wand).
+  mk_arith_instr AND bitmask_imm (armv8a_bitwise_semi id id wand).
 
 Definition armv8a_ANDS_instr : instr_desc_t :=
-  mk_ariths_instr ANDS armv8a_ANDS_semi.
+  mk_ariths_instr ANDS bitmask_imm armv8a_ANDS_semi.
 
 (* [C6.2.41 BIC (shifted register)] ARM DDI 0487 M.a, p. 1856
    Bitwise bit clear (shifted register)  This instruction performs a bitwise
@@ -1647,11 +1668,13 @@ Definition armv8a_ANDS_instr : instr_desc_t :=
      constant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);
      X[d, datasize] = operand1 AND NOT(operand2);
 *)
+(* BIC and BICS have no immediate form in A64 (the assembler does not
+   invert bitmask immediates into AND/ANDS). *)
 Definition armv8a_BIC_instr : instr_desc_t :=
-  mk_arith_instr BIC (armv8a_bitwise_semi id wnot wand).
+  mk_arith_instr BIC no_imm (armv8a_bitwise_semi id wnot wand).
 
 Definition armv8a_BICS_instr : instr_desc_t :=
-  mk_ariths_instr BICS armv8a_BICS_semi.
+  mk_ariths_instr BICS no_imm armv8a_BICS_semi.
 
 (* [C6.2.301 ORR (shifted register)] ARM DDI 0487 M.a, p. 2453
    Bitwise OR (shifted register)  This instruction performs a bitwise
@@ -1665,7 +1688,7 @@ Definition armv8a_BICS_instr : instr_desc_t :=
      X[d, datasize] = operand1 OR operand2;
 *)
 Definition armv8a_ORR_instr : instr_desc_t :=
-  mk_arith_instr ORR (armv8a_bitwise_semi id id wor).
+  mk_arith_instr ORR bitmask_imm (armv8a_bitwise_semi id id wor).
 
 (* [C6.2.156 EOR (shifted register)] ARM DDI 0487 M.a, p. 2169
    Bitwise exclusive-OR (shifted register)  This instruction performs a bitwise
@@ -1678,8 +1701,10 @@ Definition armv8a_ORR_instr : instr_desc_t :=
      X[d, datasize] = operand1 EOR operand2;
 *)
 Definition armv8a_EOR_instr : instr_desc_t :=
-  mk_arith_instr EOR (armv8a_bitwise_semi id id wxor).
+  mk_arith_instr EOR bitmask_imm (armv8a_bitwise_semi id id wxor).
 
+(* MVN is an alias of ORN (shifted register); it has no immediate form
+   (an inverted immediate is a MOV with the complemented value). *)
 Definition armv8a_MVN_instr : instr_desc_t :=
   let mn := MVN in
   let tin := [:: lword osz ] in
@@ -1693,7 +1718,7 @@ Definition armv8a_MVN_instr : instr_desc_t :=
       id_out := [:: Ea 0 ];
       id_semi := sem_lprod_ok tin semi;
       id_nargs := 2;
-      id_args_kinds := ak_rr_or_imm;
+      id_args_kinds := ak_rr_or_imm no_imm;
       id_eq_size := refl_equal;
       id_check_dest := refl_equal;
       id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
@@ -2242,7 +2267,8 @@ Definition armv8a_MOV_instr : instr_desc_t :=
     id_out := [:: Ea 0 ];
     id_semi := sem_lprod_ok tin semi;
     id_nargs := 2;
-    id_args_kinds := ak_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAimm_sz osz ] ] ];
+    id_args_kinds :=
+      ak_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAimm CAimmC_armv8a_mov_imm osz ] ] ];
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
     id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
@@ -2496,7 +2522,8 @@ Definition armv8a_REV32_instr : instr_desc_t :=
 (* -------------------------------------------------------------------- *)
 (* Comparisons. *)
 
-Definition mk_cmp_instr mn (semi : word osz -> word osz -> ty_nzcv)
+Definition mk_cmp_instr mn (ick : option caimm_checker_s)
+  (semi : word osz -> word osz -> ty_nzcv)
   : instr_desc_t :=
   let tin := [:: lword osz; lword osz ] in
   let x :=
@@ -2508,7 +2535,7 @@ Definition mk_cmp_instr mn (semi : word osz -> word osz -> ty_nzcv)
       id_out := ad_nzcv;
       id_semi := sem_lprod_ok tin semi;
       id_nargs := 2;
-      id_args_kinds := ak_rr_or_imm;
+      id_args_kinds := ak_rr_or_imm ick;
       id_eq_size := refl_equal;
       id_check_dest := refl_equal;
       id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
@@ -2526,9 +2553,12 @@ Definition mk_cmp_instr mn (semi : word osz -> word osz -> ty_nzcv)
                        (fun h => mk_semi2_2_shifted_safe sk (x.(id_semi_safe) h))
   else x.
 
-Definition armv8a_CMP_instr : instr_desc_t := mk_cmp_instr CMP armv8a_CMP_semi.
-Definition armv8a_CMN_instr : instr_desc_t := mk_cmp_instr CMN armv8a_CMN_semi.
-Definition armv8a_TST_instr : instr_desc_t := mk_cmp_instr TST armv8a_TST_semi.
+Definition armv8a_CMP_instr : instr_desc_t :=
+  mk_cmp_instr CMP arith_imm armv8a_CMP_semi.
+Definition armv8a_CMN_instr : instr_desc_t :=
+  mk_cmp_instr CMN arith_imm armv8a_CMN_semi.
+Definition armv8a_TST_instr : instr_desc_t :=
+  mk_cmp_instr TST bitmask_imm armv8a_TST_semi.
 
 (* -------------------------------------------------------------------- *)
 (* Conditional selection.
