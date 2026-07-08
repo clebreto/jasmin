@@ -225,7 +225,20 @@ Definition string_of_condt (c : condt) : string :=
 (* Register shifts.
  * Data-processing (shifted register) instructions can shift a register
  * operand before performing the operation. The shift amount ranges over
- * 0..63 for 64-bit operands and 0..31 for 32-bit operands. *)
+ * 0..63 for 64-bit operands and 0..31 for 32-bit operands.
+ *
+ * Source: the "Decode for all variants" pseudocode shared by the shifted-
+ * register data-processing instructions (Arm ARM DDI0487M.a, C6.2, e.g. AND
+ * (shifted register), p. C6-1813) reads the amount as [shift_amount =
+ * UInt(imm6)] over the operand width [datasize = 32 << UInt(sf)], and rejects
+ * an out-of-range 32-bit amount with
+ *   [if sf == '0' && imm6<5> == '1' then UNDEFINED].
+ * Hence the amount is [0 <= amount < datasize] (0..31 for W, 0..63 for X),
+ * the same range for every shift type (LSL/LSR/ASR/ROR) — unlike AArch32,
+ * where the range depends on the shift type (see [shift_amount_bounds] in
+ * shift_kind.v). This is why the AArch64 immediate checker
+ * [CAimmC_armv8a_shift_amount] (arch_decl.v) is keyed on the operand [wsize]
+ * rather than on the [shift_kind]. *)
 
 #[ export ]
 Instance eqTC_shift_kind : eqTypeC shift_kind :=
