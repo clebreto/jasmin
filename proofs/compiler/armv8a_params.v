@@ -121,13 +121,42 @@ Section LINEARIZATION.
 Notation vtmpi  := (mk_var_i (to_var R16)).
 Notation vtmp2i := (mk_var_i (to_var R17)).
 
+(* --- SP 16-byte alignment invariant --------------------------------------
+
+   On AArch64 the stack pointer must be quadword (16-byte) aligned whenever it
+   is used as the base of a memory access. This is an architectural check, not
+   merely an ABI convention:
+
+     "When the SP is used as the base address of a calculation, regardless of
+      any offset applied by the instruction, if bits [3:0] of the SP are not
+      0b0000, there is a misaligned SP." (Arm ARM DDI0487M.a, D1.4.10.2 "SP
+      alignment checking", rule RRDMXG, p. D1-7135.)
+     "If SP alignment checking is enabled, then the execution of a load or store
+      using the SP with a misaligned SP generates a synchronous SP Alignment
+      exception on that load or store." (ibid., rule RTFVSM.)
+
+   The check is enabled by SCTLR_ELx.SA / SCTLR_EL1.SA0 (ibid., rule RSTDYJ) and
+   is on for EL0 on the platforms we target (e.g. Linux, Apple). See also the
+   16-byte stack-alignment requirement of the AAPCS64 (Arm IHI 0055F, "The
+   stack", "SP mod 16 = 0" at a public interface), referenced from DDI0487M.a
+   B1.2, p. B1-203.
+
+   Jasmin sizes each stack frame to the alignment of the objects it holds
+   (sao_align), which for pure 64-bit code is only 8 bytes, so a raw frame size
+   need not be a multiple of 16. Rounding every frame allocation up to 16 bytes
+   keeps SP 16-aligned across nested calls; the extra padding lands at the top
+   of the frame and is never accessed. *)
+Definition round_up_16 (sz : Z) : Z := (Z.div (sz + 15) 16 * 16)%Z.
+
 Definition armv8a_allocate_stack_frame (rspi : var_i) (tmp : option var_i) (sz : Z) :=
+  let sz := round_up_16 sz in
   if tmp is Some aux then
     ARMv8AFopn_smart_subi_tmp rspi aux sz
   else
     [:: ARMv8AFopn_subi rspi rspi sz].
 
 Definition armv8a_free_stack_frame (rspi : var_i) (tmp : option var_i) (sz : Z) :=
+  let sz := round_up_16 sz in
   if tmp is Some aux then
     ARMv8AFopn_smart_addi_tmp rspi aux sz
   else
@@ -140,6 +169,10 @@ Definition armv8a_set_up_sp_register
   (r : var_i)
   (tmp : var_i) :
   seq fopn_args :=
+  (* Never align the frame to less than 16 bytes, even when the stack objects
+     would tolerate a weaker alignment, to preserve the SP alignment invariant
+     documented at [round_up_16] (Arm ARM DDI0487M.a, D1.4.10.2). *)
+  let al := if (al <= U128)%CMP then U128 else al in
   let load_imm := ARMv8AFopn_smart_subi tmp rspi sf_sz in
   let i0 := ARMv8AFopn_align tmp tmp al in
   let i1 := ARMv8AFopn_mov r rspi in
@@ -164,6 +197,35 @@ Definition armv8a_lload (xd : var_i) (xs : var_i) (ofs : Z) :=
   let mn := LDR in
   ([:: LLvar xd], Oarmv8a (ARMv8A_op mn default_opts), [:: Load Aligned ws (faddv Uptr xs (fconst ws ofs))]).
 
+(* Restore saved values from the stack. Unlike ARMv7 (where SP/R13 is an
+   ordinary register that LDR can target), an A64 load writes its result through
+   the general-purpose (X[]) register accessor, for which register number 31 is
+   the zero register ZR, not SP (Arm ARM DDI0487M.a, B1.2, p. B1-206; and the
+   LDR encoding takes <Xt>, never <Xt|SP>). The stack-pointer slot therefore
+   cannot be reloaded directly: the saved registers are restored first (relative
+   to the still-live SP), then the saved stack pointer is loaded into the scratch
+   register X17 and copied to SP with a MOV (which reaches SP via the SP[]
+   accessor). Large offsets are materialized into X17 as in [lloads_imm_dfl]. *)
+Definition armv8a_lloads (rspi : var_i) (to_restore : seq (var * Z)) (spofs : Z) :
+    seq fopn_args :=
+  let restore_regs :=
+    if all (fun '(_, ofs) => is_arith_small ofs) to_restore then
+      map (fun '(x, ofs) => armv8a_lload (VarI x dummy_var_info) rspi ofs) to_restore
+    else
+      let ofs0 := snd (head (v_var rspi, 0%Z) to_restore) in
+      let to_restore := map (fun '(x, ofs) => (x, ofs - ofs0)%Z) to_restore in
+      ARMv8AFopn_smart_addi vtmp2i rspi ofs0
+        ++ map (fun '(x, ofs) => armv8a_lload (VarI x dummy_var_info) vtmp2i ofs) to_restore
+  in
+  let restore_sp :=
+    if is_arith_small spofs then
+      [:: armv8a_lload vtmp2i rspi spofs; armv8a_lmove rspi vtmp2i ]
+    else
+      ARMv8AFopn_smart_addi vtmp2i rspi spofs
+        ++ [:: armv8a_lload vtmp2i vtmp2i 0; armv8a_lmove rspi vtmp2i ]
+  in
+  restore_regs ++ restore_sp.
+
 Definition armv8a_liparams : linearization_params :=
   {|
     lip_tmp  := armv8a_tmp;
@@ -177,7 +239,7 @@ Definition armv8a_liparams : linearization_params :=
     lip_lstore  := armv8a_lstore;
     lip_lload := armv8a_lload;
     lip_lstores := lstores_imm_dfl armv8a_tmp2 armv8a_lstore ARMv8AFopn_smart_addi is_arith_small;
-    lip_lloads  := lloads_imm_dfl armv8a_tmp2 armv8a_lload  ARMv8AFopn_smart_addi is_arith_small;
+    lip_lloads  := armv8a_lloads;
   |}.
 
 End LINEARIZATION.

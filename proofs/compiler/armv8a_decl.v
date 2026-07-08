@@ -28,20 +28,47 @@ Definition armv8a_xreg_size := U128.
 
 (* -------------------------------------------------------------------- *)
 (* Registers.
-   [R0]..[R30] are the general-purpose registers X0..X30.
-   [RZR] is the zero register XZR and [RSP] the stack pointer SP; both use
-   register encoding 31, the instruction determines which one is meant. *)
+
+   AArch64 exposes 31 general-purpose registers R0..R30, each addressable as a
+   64-bit X or 32-bit W register, plus a dedicated stack pointer SP. R30 is the
+   procedure-call link register (Arm ARM DDI0487M.a, B1.2 "Registers in AArch64
+   Execution state", p. B1-203).
+
+   This model deliberately deviates from the raw register file in two places.
+
+   - XZR (the zero register) is NOT modeled as a register. In an instruction
+     encoding, the 5-bit register field value 31 (0b11111) denotes, for the
+     general-purpose (X[]/W[]) accessor, the zero register ZR, which "reads as
+     zero and ignores writes" (DDI0487M.a, B1.2, p. B1-206); the stack pointer
+     is reached through a *separate* SP[] accessor, so the same value 31 means
+     SP only for the instructions that select it (ADD/SUB/MOV-to-SP, loads and
+     stores). Modeling ZR as an allocatable register is therefore unsound: a
+     value written to it is discarded and reads return 0. As with RISC-V's
+     hardwired X0, we simply omit it; the few instructions that need ZR as an
+     operand (CMP = SUBS to ZR, NEG, TST, ...) are emitted as dedicated
+     mnemonics by the assembly printer. [RSP] below is the only encoding-31
+     register we keep, and it always denotes SP.
+
+   - X18 is NOT modeled either. The Procedure Call Standard for the Arm 64-bit
+     Architecture (AAPCS64, Arm IHI 0055F, section "General-purpose registers")
+     designates r18 as "The Platform Register, if needed; otherwise a temporary
+     register", and states that platform ABIs may reserve it. It is reserved in
+     practice on Apple platforms ("Writing ARM64 Code for Apple Platforms":
+     "The platforms reserve register x18. Don't use this register.") and under
+     Windows and shadow-call-stack Linux, where the OS/runtime may overwrite it
+     asynchronously. Since Jasmin's clobber analysis cannot see such external
+     writes, keeping x18 out of the allocation pool is the only safe choice; on
+     platforms where x18 is a plain temporary this merely forgoes one register. *)
 
 #[only(eqbOK)] derive
 Variant register : Type :=
 | R0 | R1 | R2 | R3 | R4 | R5 | R6 | R7
 | R8 | R9 | R10 | R11 | R12 | R13 | R14 | R15
-| R16 | R17 | R18
+| R16 | R17
 | R19 | R20 | R21 | R22 | R23 | R24
 | R25 | R26 | R27 | R28
 | R29                           (* Frame pointer. *)
 | R30                           (* Link register. *)
-| RZR                           (* Zero register. *)
 | RSP.                          (* Stack pointer. *)
 
 #[ export ]
@@ -53,10 +80,10 @@ Canonical armv8a_register_eqType := @ceqT_eqType _ eqTC_register.
 Definition registers :=
   [:: R0; R1; R2; R3; R4; R5; R6; R7;
       R8; R9; R10; R11; R12; R13; R14; R15;
-      R16; R17; R18;
+      R16; R17;
       R19; R20; R21; R22; R23; R24;
       R25; R26; R27; R28;
-      R29; R30; RZR; RSP ].
+      R29; R30; RSP ].
 
 Lemma register_fin_axiom : Finite.axiom registers.
 Proof. by case. Qed.
@@ -76,12 +103,11 @@ Definition register_to_string (r : register) : string :=
   | R4 => "x4"   | R5 => "x5"   | R6 => "x6"   | R7 => "x7"
   | R8 => "x8"   | R9 => "x9"   | R10 => "x10" | R11 => "x11"
   | R12 => "x12" | R13 => "x13" | R14 => "x14" | R15 => "x15"
-  | R16 => "x16" | R17 => "x17" | R18 => "x18"
+  | R16 => "x16" | R17 => "x17"
   | R19 => "x19" | R20 => "x20" | R21 => "x21" | R22 => "x22"
   | R23 => "x23" | R24 => "x24" | R25 => "x25" | R26 => "x26"
   | R27 => "x27" | R28 => "x28"
   | R29 => "x29" | R30 => "x30"
-  | RZR => "xzr"
   | RSP => "sp"
   end.
 
@@ -317,7 +343,7 @@ Definition armv8a_internal_call_conv : internal_calling_convention :=
   {| icall_reg   :=
       [:: R0; R1; R2; R3; R4; R5; R6; R7;
           R8; R9; R10; R11; R12; R13; R14; R15;
-          R16; R17; R18;
+          R16; R17;
           R19; R20; R21; R22; R23; R24;
           R25; R26; R27; R28; R29 ]
    ; icall_regx  := [::]
