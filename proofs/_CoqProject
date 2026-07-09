@@ -67,6 +67,7 @@ compiler/armv8a_lowering.v
 compiler/armv8a_stack_zeroization.v
 compiler/armv8a_params.v
 compiler/armv8a_params_common_proof.v
+compiler/armv8a_params_proof.v
 
 compiler/arm_params_common.v
 compiler/arm_params_common_proof.v
