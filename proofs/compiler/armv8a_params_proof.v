@@ -2,7 +2,8 @@
    [arm_params_proof.v].
 
    Proven so far: the stack-alloc hypotheses ([armv8a_hsaparams]) and the
-   linearization hypotheses ([armv8a_hliparams]), together with the
+   complete linearization hypotheses ([armv8a_hliparams], including
+   [lloads_correct] for the custom [armv8a_lloads]), together with the
    scratch-register facts and the (trivial) lower-addressing hypotheses.
 
    Still missing before the [h_architecture_params] record can be built:
@@ -209,6 +210,14 @@ Lemma sem_fopns_args_1 s (a : fopn_args) :
   sem_fopns_args s [:: a ] = sem_fopn_args a s.
 Proof. by rewrite /sem_fopns_args /=; case: sem_fopn_args. Qed.
 
+Lemma bind_ok_estate (s1 : estate) (f : estate -> exec estate) :
+  (Let s2 := ok s1 in f s2) = f s1.
+Proof. by []. Qed.
+
+Lemma foldM_1 (T R E : Type) (f : T -> R -> result E R) (acc : R) (a : T) :
+  foldM f acc [:: a ] = f a acc.
+Proof. by rewrite /=; case: (f a acc). Qed.
+
 Lemma armv8a_spec_lip_allocate_stack_frame :
   allocate_stack_frame_correct armv8a_liparams.
 Proof.
@@ -344,11 +353,206 @@ Proof. by move=> h; assert (h1 := inj_to_ident h). Qed.
 Lemma armv8a_check_ws_correct : lip_check_ws armv8a_liparams Uptr.
 Proof. done. Qed.
 
-(* Missing for [h_linearization_params]: [lloads_correct] for the custom
-   [armv8a_lloads] (which restores the saved stack pointer through the
-   scratch register X17 and a MOV, since an A64 LDR cannot target SP). *)
+(* [lloads_correct] for the custom [armv8a_lloads], which restores the
+   saved stack pointer through the scratch register X17 and a MOV, since
+   an A64 load writes through the X[] accessor for which register number
+   31 is ZR, not SP (see armv8a_params.v). *)
+
+Section LLOADS.
+
+Notation vtmp2i := (mk_var_i (to_var R17)).
+
+Let foldM_restore m1 (top' : word Uptr) :=
+  foldM (fun '(x, ofs1) (vm : Vm.t) =>
+    Let ws := if vtype x is aword ws then ok ws else Error ErrType in
+    Let _ := assert (armv8a_check_ws ws) ErrType in
+    Let w := read m1 Aligned (top' + wrepr Uptr ofs1)%R ws in
+    set_var true vm x (Vword w)).
+
+(* A restore [foldM] only modifies the variables it sets. *)
+Lemma lloads_foldM_eq_ex m1 (top' : word Uptr) (l : seq (var * Z)) vm vm' :
+  foldM_restore m1 top' vm l = ok vm' ->
+  forall z, z \notin map fst l -> vm'.[z] = vm.[z].
+Proof.
+  rewrite /foldM_restore.
+  elim: l vm => /= [ | [x ofs1] l ih] vm.
+  + by move=> [<-].
+  case heqt: vtype => [|||ws] //=; t_xrbindP => vm1 _ w _ hset /ih hex z.
+  rewrite in_cons negb_or => /andP [hzx hzl].
+  rewrite (hex _ hzl).
+  move/set_varP: hset => [_ _ ->].
+  by rewrite Vm.setP_neq // eq_sym.
+Qed.
+
+Lemma armv8a_lloads_correct : lloads_correct armv8a_liparams.
+Proof.
+  move=> rspi to_save ofs s top vm2 /= hnin hnin2 hne hget.
+  rewrite foldM_cat /=; t_xrbindP => vm_r hf.
+  case heqt: (vtype rspi) => [|||ws] //=; t_xrbindP
+    => vm2' wsx hwsx hchk w_sp hread hset heqv.
+  subst wsx vm2.
+  move/eqP: (hchk) => ?; subst ws.
+  move/set_varP: hset => [_ _ ?]; subst vm2'.
+
+  have hsetvar : forall (vm : Vm.t) (w : word Uptr),
+      set_var true vm vtmp2i (Vword w) = ok vm.[v_var vtmp2i <- Vword w].
+  - by move=> vm w; apply: set_var_eq_type.
+  have hconv2 : convertible (vtype (v_var vtmp2i)) (aword reg_size).
+  - by vm_compute.
+
+  (* The SP-restoring tail, from any varmap holding [top] in [rspi]. *)
+  have hsp : forall vmr,
+      get_var true vmr rspi >>= to_word Uptr = ok top ->
+      exists2 vm,
+        sem_fopns_args (with_vm s vmr)
+          (if is_arith_small ofs
+           then [:: armv8a_lload vtmp2i rspi ofs; armv8a_lmove rspi vtmp2i ]
+           else ARMv8AFopn_smart_addi vtmp2i rspi ofs
+                ++ [:: armv8a_lload vtmp2i vtmp2i 0%Z; armv8a_lmove rspi vtmp2i ])
+          = ok (with_vm s vm)
+        & vm =[\ Sv.singleton (v_var vtmp2i) ] vmr.[v_var rspi <- Vword w_sp].
+  - move=> vmr hget_r.
+    case: ifP => _.
+    + (* Small offset: LDR from [rspi] directly. *)
+      rewrite -cat1s sem_fopns_args_cat !sem_fopns_args_1.
+      rewrite (armv8a_lload_correct (xd := vtmp2i) (xs := rspi)
+                 (s := with_vm s vmr)
+                 hconv2 armv8a_check_ws_correct hget_r hread (hsetvar _ _)).
+      rewrite /= get_var_eq /=; last by [].
+      rewrite /exec_sopn /= truncate_word_u /=.
+      rewrite set_var_eq_type /=; first last.
+      + by rewrite heqt.
+      + by [].
+      rewrite /armv8a_MOV_semi.
+      eexists; first by [].
+      move=> z /Sv.singleton_spec hz.
+      rewrite !Vm.setP; case: eqP => // _.
+      by case: eqP => // heqz; case: (hz (esym heqz)).
+    (* Large offset: materialize [rspi + ofs] into the scratch register. *)
+    rewrite /sem_fopns_args foldM_cat -!/sem_fopns_args.
+    have [vma [hsema heqa hgeta]] :=
+      ARMv8AFopnP.smart_addi_sem_fopn_args (xi := vtmp2i) (y := rspi)
+        (imm := ofs) (s := with_vm s vmr) hconv2 (or_intror hne) hget_r.
+    rewrite hsema bind_ok_estate.
+    rewrite -cat1s /sem_fopns_args foldM_cat !foldM_1 -!/sem_fopns_args.
+    have hread0 :
+      read (emem s) Aligned ((top + wrepr Uptr ofs) + wrepr Uptr 0)%R reg_size
+      = ok w_sp.
+    + by rewrite wrepr0 GRing.addr0.
+    rewrite (armv8a_lload_correct (xd := vtmp2i) (xs := vtmp2i)
+               (s := with_vm (with_vm s vmr) vma)
+               hconv2 armv8a_check_ws_correct _ hread0 (hsetvar _ _)); first last.
+    + by rewrite hgeta /= truncate_word_u.
+    rewrite /= get_var_eq /=; last by [].
+    rewrite /exec_sopn /= truncate_word_u /=.
+    rewrite set_var_eq_type /=; first last.
+    + by rewrite heqt.
+    + by [].
+    rewrite /armv8a_MOV_semi.
+    eexists; first by [].
+    move=> z /Sv.singleton_spec hz.
+    rewrite !Vm.setP; case: eqP => // _.
+    case: eqP => [heqz | _]; first by case: (hz (esym heqz)).
+    by rewrite heqa //; apply/Sv.singleton_spec.
+
+  rewrite /lip_lloads /armv8a_lloads.
+  rewrite /sem_fopns_args foldM_cat -!/sem_fopns_args.
+  case hall: (all (fun '(_, ofs1) => is_arith_small ofs1) to_save).
+
+  (* All offsets small: LDR directly from [rspi]. *)
+  - have [hsem1 hget1] := lloads_aux_correct armv8a_lload_correct hnin hget hf.
+    rewrite -[X in sem_fopns_args _ X]/(lloads_aux armv8a_lload rspi to_save).
+    rewrite hsem1 bind_ok_estate.
+    have [vm [-> hvm]] := hsp _ hget1.
+    exists vm => //.
+    move=> z hz.
+    by rewrite (hvm _ hz).
+
+  (* Rebase through the scratch register. *)
+  rewrite -[X in sem_fopns_args _ X]/(
+    ARMv8AFopn_smart_addi vtmp2i rspi (head (v_var rspi, 0%Z) to_save).2 ++
+    lloads_aux armv8a_lload vtmp2i
+      (map (fun '(x1, ofs1) =>
+              (x1, (ofs1 - (head (v_var rspi, 0%Z) to_save).2)%Z)) to_save)).
+  move: (head _ _).2 => ofs0.
+  rewrite /sem_fopns_args foldM_cat -!/sem_fopns_args.
+  have [vma [hsema heqa hgeta]] :=
+    ARMv8AFopnP.smart_addi_sem_fopn_args (xi := vtmp2i) (y := rspi)
+      (imm := ofs0) (s := s) hconv2 (or_intror hne) hget.
+  rewrite hsema /=.
+  have hnin_reb : forall (x : var),
+      ~~ Sv.mem x (sv_of_list fst to_save) ->
+      ~~ Sv.mem x (sv_of_list fst
+                     (map (fun '(x1, ofs1) => (x1, (ofs1 - ofs0)%Z)) to_save)).
+  - move=> x /Sv_memP hx; apply/Sv_memP => /sv_of_listP; rewrite -map_comp.
+    move=> /mapP [p hin hx']; apply: hx; apply/sv_of_listP; apply/mapP.
+    by exists p => //; rewrite hx'; case: (p).
+  have [vm_r' hf' heqx] : exists2 vm_r',
+      foldM_restore (emem s) (top + wrepr Uptr ofs0)%R vma
+        (map (fun '(x1, ofs1) => (x1, (ofs1 - ofs0)%Z)) to_save) = ok vm_r'
+      & vm_r =[\ Sv.singleton (v_var vtmp2i) ] vm_r'.
+  - rewrite /foldM_restore.
+    move: heqa hf; move: (evm s) (vma) (to_save) => vm_o vma' l heqa hf.
+    elim: l vm_o vma' heqa hf => /=.
+    + by move=> vm_o vma' heqa [<-]; exists vma' => //; apply: eq_exS.
+    move=> [x ofs1] to_save' ih vm_o vma' heqa.
+    case heqtx: vtype => [|||wsx] //=; t_xrbindP.
+    move=> vm_o1 -> /= w hreadx hsetx hfx.
+    rewrite -GRing.addrA -wrepr_add.
+    have -> : (ofs0 + (ofs1 - ofs0))%Z = ofs1 by ring.
+    rewrite hreadx /= set_var_eq_type //=; last by rewrite heqtx.
+    apply: (ih _ _ _ hfx).
+    move=> z hz.
+    move/set_varP: hsetx => [_ _ ->].
+    rewrite !Vm.setP heqtx vm_truncate_val_eq //.
+    case: eqP => // _.
+    by apply: heqa.
+  have hget_r' : get_var true vm_r' rspi >>= to_word Uptr = ok top.
+  - have -> : get_var true vm_r' rspi = get_var true (evm s) rspi.
+    + rewrite /get_var (lloads_foldM_eq_ex hf'); last first.
+      * by have /Sv_memP/sv_of_listP := hnin_reb _ hnin.
+      by rewrite heqa //; apply: Sv_neq_not_in_singleton.
+    exact: hget.
+  have hgeta2 : get_var true vma (v_var vtmp2i) >>= to_word Uptr
+                = ok (top + wrepr Uptr ofs0)%R.
+  - by rewrite hgeta /= truncate_word_u.
+  have hnin2' : ~~ Sv.mem (v_var vtmp2i)
+      (sv_of_list fst (map (fun '(x1, ofs1) => (x1, (ofs1 - ofs0)%Z)) to_save)).
+  - exact: (hnin_reb _ hnin2).
+  have [hsem1 _] := lloads_aux_correct armv8a_lload_correct
+                      (rspi := vtmp2i)
+                      (to_restore := map (fun '(x1, ofs1) =>
+                                            (x1, (ofs1 - ofs0)%Z)) to_save)
+                      (s := with_vm s vma) hnin2' hgeta2 hf'.
+  rewrite -[X in sem_fopns_args _ X]/(lloads_aux armv8a_lload vtmp2i
+      (map (fun '(x1, ofs1) => (x1, (ofs1 - ofs0)%Z)) to_save)).
+  rewrite hsem1 bind_ok_estate.
+  have [vm [-> hvm]] := hsp _ hget_r'.
+  exists vm => //.
+  move=> z hz.
+  rewrite (hvm _ hz) !Vm.setP.
+  case: eqP => // _.
+  by apply: heqx.
+Qed.
+
+End LLOADS.
 
 End LINEARIZATION.
+
+Definition armv8a_hliparams :
+  h_linearization_params (ap_lip armv8a_params) :=
+  {|
+    spec_lip_allocate_stack_frame := armv8a_spec_lip_allocate_stack_frame;
+    spec_lip_free_stack_frame     := armv8a_spec_lip_free_stack_frame;
+    spec_lip_set_up_sp_register   := armv8a_spec_lip_set_up_sp_register;
+    spec_lip_lmove                := armv8a_lmove_correct;
+    spec_lip_lstore               := armv8a_lstore_correct;
+    spec_lip_lload                := armv8a_lload_correct;
+    spec_lip_lstores              := armv8a_lstores_correct;
+    spec_lip_lloads               := armv8a_lloads_correct;
+    spec_lip_tmp                  := armv8a_tmp_correct;
+    spec_lip_check_ws             := armv8a_check_ws_correct;
+  |}.
 
 Lemma armv8a_ok_lip_tmp :
   exists r : reg_t, of_ident (lip_tmp (ap_lip armv8a_params)) = Some r.
