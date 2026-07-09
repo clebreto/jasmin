@@ -259,6 +259,24 @@ Definition is_mul (ws : wsize) (e : pexpr) : option (pexpr * pexpr) :=
   then if ws' == ws then Some (x, y) else None
   else None.
 
+(* Accept a shift amount that is either a compile-time constant already in
+   [0, wsize) or an expression explicitly masked to the operand size
+   ([a & (wsize_bits - 1)]), as on x86 and RISC-V. In the masked case the
+   mask is dropped: the A64 register shifts reduce the amount modulo the
+   operand size, which subsumes it. *)
+Definition check_shift_expr (ws : wsize) (e : pexpr) : option pexpr :=
+  if is_wconst U8 e is Some n
+  then
+    if n == wand n (wrepr U8 (wsize_bits ws - 1)) then Some e else None
+  else
+    match e with
+    | Papp2 (Oland _) a b =>
+        if is_wconst U8 b is Some n
+        then if n == wrepr U8 (wsize_bits ws - 1) then Some a else None
+        else None
+    | _ => None
+    end.
+
 Definition lower_Papp2_op
   (ws : wsize) (op : sop2) (e0 e1 : pexpr) :
   option (armv8a_mnemonic * pexpr * pexprs) :=
@@ -290,35 +308,34 @@ Definition lower_Papp2_op
       Some (ORR, e0, [:: e1 ])
   | Olxor _ =>
       Some (EOR, e0, [:: e1 ])
-  (* Logical/arithmetic shifts by a variable amount are NOT lowered to a bare
-     A64 shift: the register form of LSR/LSL/ASR shifts by [amount mod wsize],
-     whereas the Jasmin source shifts clamp the amount to [wsize] (shifting all
-     bits out yields 0). The two disagree once the amount reaches [wsize]. We
-     therefore only lower a compile-time constant amount that is in [0, wsize),
-     where [mod] and the clamp coincide (matching the constant-only discipline
-     of [Orol] and [get_arg_shift]). Rotates ([Oror]/[Orol]) are exempt: the
-     rotation is periodic, so [mod] is already the intended semantics. *)
+  (* Logical/arithmetic shifts are NOT lowered to a bare A64 shift for an
+     arbitrary amount: the register form of LSR/LSL/ASR shifts by
+     [amount mod wsize], whereas the Jasmin source shifts clamp the amount
+     to [wsize] (shifting all bits out yields 0). The two disagree once the
+     amount reaches [wsize]. As on x86 and RISC-V ([check_shift_amount]
+     there), we accept an amount that is either a compile-time constant in
+     [0, wsize) or an expression explicitly masked to the operand size
+     ([a & (wsize_bits - 1)]); the mask is subsumed by the hardware modulus
+     and is dropped. Rotates ([Oror]/[Orol]) are exempt: rotation is
+     periodic, so [mod] is already the intended semantics. *)
   | Olsr ws' =>
       let%opt _ := oassert (ws' == ws) in
-      let%opt c := is_wconst U8 e1 in
-      if c == 0%w then Some (MOV, e0, [::])
+      if is_zero U8 e1 then Some (MOV, e0, [::])
       else
-        let%opt _ := oassert (check_shift_amount ws (wunsigned c)) in
-        Some (LSR, e0, [:: e1 ])
+        let%opt e1' := check_shift_expr ws e1 in
+        Some (LSR, e0, [:: e1' ])
   | Olsl (Op_w ws') =>
       let%opt _ := oassert (ws' == ws) in
-      let%opt c := is_wconst U8 e1 in
-      if c == 0%w then Some (MOV, e0, [::])
+      if is_zero U8 e1 then Some (MOV, e0, [::])
       else
-        let%opt _ := oassert (check_shift_amount ws (wunsigned c)) in
-        Some (LSL, e0, [:: e1 ])
+        let%opt e1' := check_shift_expr ws e1 in
+        Some (LSL, e0, [:: e1' ])
   | Oasr (Op_w ws') =>
       let%opt _ := oassert (ws' == ws) in
-      let%opt c := is_wconst U8 e1 in
-      if c == 0%w then Some (MOV, e0, [::])
+      if is_zero U8 e1 then Some (MOV, e0, [::])
       else
-        let%opt _ := oassert (check_shift_amount ws (wunsigned c)) in
-        Some (ASR, e0, [:: e1 ])
+        let%opt e1' := check_shift_expr ws e1 in
+        Some (ASR, e0, [:: e1' ])
   | Oror ws' =>
       let%opt _ := oassert (ws' == ws) in
       if is_zero U8 e1 then Some (MOV, e0, [::])
