@@ -58,5 +58,7 @@ module Riscv (Lowering_params : Riscv_input) : Arch_full.Core_arch
 
   let callstyle = Arch_full.ByReg { call = Some RA; return = true }
 
+  let sp_min_align = Wsize.U8
+
   let internal_call_conv = Riscv_decl.riscv_internal_call_conv
 end

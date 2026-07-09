@@ -39,6 +39,9 @@ module type Core_arch = sig
 
   val callstyle : reg callstyle
 
+  (* Minimal alignment of every stack frame; see arch_full.ml. *)
+  val sp_min_align : Wsize.wsize
+
   val known_implicits : (Name.t * string) list
 
   val is_ct_asm_op : asm_op -> bool
