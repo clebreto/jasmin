@@ -507,6 +507,137 @@ Proof.
 Qed.
 Opaque ARMv8AFopn_core.li.
 
+(* -------------------------------------------------------------------- *)
+(* Immediate materialization at W (32-bit) width, used by the
+   [Oarmv8a_smart_li U32] extra op. The destination variable still has
+   register type (a W write clears the upper bits at the assembly level);
+   at this level the varmap simply holds the 32-bit value, which the
+   [withsubword] discipline allows. *)
+
+Transparent ARMv8AFopn_core.movz.
+Transparent ARMv8AFopn_core.movn.
+Transparent ARMv8AFopn_core.movk.
+Transparent ARMv8AFopn_core.li.
+
+Lemma movz_sem_fopn_args_w32 {s} {xi : var_i} {imm sh : Z} :
+  convertible xi.(vtype) (aword armv8a_reg_size) ->
+  let: w := armv8a_MOVZ_semi (ws := U32) (wrepr U16 imm) (wrepr U8 sh) in
+  let: vm' := (evm s).[xi <- Vword w] in
+  sem_fopn_args (ARMv8AFopn_core.movz U32 xi imm sh) s = ok (with_vm s vm').
+Proof.
+  move=> hc.
+  rewrite /=; t_armv8a_op.
+  by rewrite /= set_var_truncate // (convertible_eval_atype hc).
+Qed.
+
+Lemma movn_sem_fopn_args_w32 {s} {xi : var_i} {imm sh : Z} :
+  convertible xi.(vtype) (aword armv8a_reg_size) ->
+  let: w := armv8a_MOVN_semi (ws := U32) (wrepr U16 imm) (wrepr U8 sh) in
+  let: vm' := (evm s).[xi <- Vword w] in
+  sem_fopn_args (ARMv8AFopn_core.movn U32 xi imm sh) s = ok (with_vm s vm').
+Proof.
+  move=> hc.
+  rewrite /=; t_armv8a_op.
+  by rewrite /= set_var_truncate // (convertible_eval_atype hc).
+Qed.
+
+Lemma movk_sem_fopn_args_w32 {s} {xi : var_i} {imm sh : Z} {wx : word U32} :
+  convertible xi.(vtype) (aword armv8a_reg_size) ->
+  get_var true (evm s) (v_var xi) >>= to_word U32 = ok wx ->
+  let: w := armv8a_MOVK_semi wx (wrepr U16 imm) (wrepr U8 sh) in
+  let: vm' := (evm s).[xi <- Vword w] in
+  sem_fopn_args (ARMv8AFopn_core.movk U32 xi imm sh) s = ok (with_vm s vm').
+Proof.
+  move=> hc.
+  rewrite /=; t_xrbindP => *; t_armv8a_op.
+  by rewrite /= set_var_truncate // (convertible_eval_atype hc).
+Qed.
+
+Opaque ARMv8AFopn_core.movz.
+Opaque ARMv8AFopn_core.movn.
+Opaque ARMv8AFopn_core.movk.
+
+Lemma li_lsem_1_w32 s (xi : var_i) imm :
+  convertible xi.(vtype) (aword armv8a_reg_size) ->
+  let: lcmd := ARMv8AFopn_core.li U32 xi imm in
+  exists vm',
+    [/\ sem_fopns_args s lcmd = ok (with_vm s vm')
+      , vm' =[\ Sv.singleton xi ] evm s
+      & get_var true vm' xi = ok (Vword (wrepr U32 imm)) ].
+Proof.
+  move=> hc.
+  rewrite /ARMv8AFopn_core.li.
+  set n := (imm mod wbase U32)%Z.
+  have hwb : wbase U32 = 4294967296%Z by vm_compute.
+  have hn : (0 <= n < wbase U32)%Z by apply/Z_mod_lt/wbase_pos.
+  have hwr : wrepr U32 n = wrepr U32 imm by rewrite /n wrepr_mod.
+
+  case: ZltP => [hsmall | /Z.nlt_ge hbig] /=.
+
+  (* Case: 16-bit immediate, single MOVZ. *)
+  - rewrite (movz_sem_fopn_args_w32 hc) /=.
+    rewrite armv8a_MOVZ_semiE //; last lia.
+    eexists; split; first reflexivity.
+    + by move=> v /Sv.singleton_spec ?; t_vm_get.
+    by t_get_var; rewrite (convertible_eval_atype hc) hwr.
+
+  case: ZleP => [hones | /Z.nle_gt hmid] /=.
+
+  (* Case: upper chunk all ones, single MOVN. *)
+  - have hl := Z.add_lnot_diag n.
+    have hlnotmod : (Z.lnot n mod wbase U32 = wbase U32 - 1 - n)%Z.
+    + have -> : Z.lnot n = ((wbase U32 - 1 - n) + (-1) * wbase U32)%Z by lia.
+      rewrite Z_mod_plus_full.
+      apply: Zmod_small; lia.
+    have hlnot : Z_mod_lnot n U32 = (wbase U32 - 1 - n)%Z.
+    + by rewrite /Z_mod_lnot (Zmod_small _ _ hn) hlnotmod.
+    rewrite (movn_sem_fopn_args_w32 hc) /=.
+    rewrite armv8a_MOVN_semiE //; last first.
+    + rewrite hlnot; lia.
+    eexists; split; first reflexivity.
+    + by move=> v /Sv.singleton_spec ?; t_vm_get.
+    by t_get_var;
+      rewrite (convertible_eval_atype hc) hlnot -hlnotmod wrepr_mod
+        wrepr_wnot Z.lnot_involutive hwr.
+
+  (* Case: MOVZ of the low chunk plus at most one MOVK. *)
+  have hc0 : (0 <= n mod 2 ^ 16 < 2 ^ 16)%Z by apply: Z_mod_lt.
+  rewrite !orbT /= cats0.
+  rewrite (movz_sem_fopn_args_w32 hc) /=.
+  rewrite armv8a_MOVZ_semiE //.
+  set s1 := with_vm s _.
+  have hget1 : get_var true (evm s1) (v_var xi)
+    = ok (Vword (wrepr U32 (n mod 2 ^ 16))).
+  - by t_get_var; rewrite (convertible_eval_atype hc).
+  have hchunk : (n mod 2 ^ (16 + 16)
+                 = 2 ^ 16 * ((n / 2 ^ 16) mod 2 ^ 16) + n mod 2 ^ 16)%Z.
+  - by rewrite Z.pow_add_r; [ apply: z_mod_recombine | lia | lia ].
+  have hmod32 : (n mod 2 ^ (16 + 16))%Z = n.
+  - have -> : (2 ^ (16 + 16) = wbase U32)%Z by vm_compute.
+    by rewrite Zmod_small.
+
+  case: Z.eqb_spec => [hz | hnz] /=.
+
+  (* Zero high chunk: the MOVZ already materialized the immediate. *)
+  - eexists; split; first reflexivity.
+    + by move=> v /Sv.singleton_spec ?; t_vm_get.
+    rewrite hget1 -hwr.
+    by rewrite -[in RHS]hmod32 hchunk hz Z.mul_0_r Z.add_0_l.
+
+  (* Nonzero high chunk: insert it with MOVK. *)
+  rewrite (movk_sem_fopn_args_w32 (wx := wrepr U32 (n mod 2 ^ 16)) hc); first last.
+  - by rewrite hget1 /= truncate_word_u.
+  have h1 : (0 <= 16)%Z by [].
+  have h2 : (16 + 16 <= wsize_bits U32)%Z by [].
+  have h3 : (0 <= (n / 2 ^ 16) mod 2 ^ 16 < 2 ^ 16)%Z by apply: Z_mod_lt.
+  rewrite /= (armv8a_MOVK_semiE h1 h2 hc0 h3).
+  eexists; split; first reflexivity.
+  - by move=> v /Sv.singleton_spec ?; t_vm_get.
+  t_get_var; rewrite (convertible_eval_atype hc) /=.
+  all: by rewrite -?hchunk ?hmod32 ?hwr.
+Qed.
+Opaque ARMv8AFopn_core.li.
+
 Lemma smart_mov_sem_fopns_args s (w : word armv8a_reg_size) (xi:var_i) y :
   convertible xi.(vtype) (aword armv8a_reg_size) ->
   let: lc := ARMv8AFopn_core.smart_mov xi y in
