@@ -40,6 +40,8 @@ module X86_core = struct
 
   let callstyle = Arch_full.StackDirect
 
+  let sp_min_align = U8
+
   let known_implicits = ["OF","_of_"; "CF", "_cf_"; "SF", "_sf_"; "ZF", "_zf_"]
 
   let alloc_stack_need_extra _ = false

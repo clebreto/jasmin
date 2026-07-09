@@ -142,21 +142,25 @@ Notation vtmp2i := (mk_var_i (to_var R17)).
    B1.2, p. B1-203.
 
    Jasmin sizes each stack frame to the alignment of the objects it holds
-   (sao_align), which for pure 64-bit code is only 8 bytes, so a raw frame size
-   need not be a multiple of 16. Rounding every frame allocation up to 16 bytes
-   keeps SP 16-aligned across nested calls; the extra padding lands at the top
-   of the frame and is never accessed. *)
-Definition round_up_16 (sz : Z) : Z := (Z.div (sz + 15) 16 * 16)%Z.
+   (sao_align), which for pure 64-bit code would be only 8 bytes, so a raw
+   frame size need not be a multiple of 16. The invariant is maintained on
+   the oracle side: the stack-alloc oracle raises every function's
+   [sao_align] to at least U128 ([sp_min_align] in
+   compiler/src/arch_full.ml, applied in varalloc.ml), and frame
+   allocations are rounded up to the frame alignment
+   ([stack_frame_allocation_size], linearization.v), so every SP
+   adjustment is a multiple of 16 and export entry alignment (guaranteed
+   16-byte by the platform) is preserved across calls. The operations
+   below therefore adjust SP by exactly the size they are given, as the
+   [h_linearization_params] specification requires. *)
 
 Definition armv8a_allocate_stack_frame (rspi : var_i) (tmp : option var_i) (sz : Z) :=
-  let sz := round_up_16 sz in
   if tmp is Some aux then
     ARMv8AFopn_smart_subi_tmp rspi aux sz
   else
     [:: ARMv8AFopn_subi rspi rspi sz].
 
 Definition armv8a_free_stack_frame (rspi : var_i) (tmp : option var_i) (sz : Z) :=
-  let sz := round_up_16 sz in
   if tmp is Some aux then
     ARMv8AFopn_smart_addi_tmp rspi aux sz
   else
@@ -169,10 +173,8 @@ Definition armv8a_set_up_sp_register
   (r : var_i)
   (tmp : var_i) :
   seq fopn_args :=
-  (* Never align the frame to less than 16 bytes, even when the stack objects
-     would tolerate a weaker alignment, to preserve the SP alignment invariant
-     documented at [round_up_16] (Arm ARM DDI0487M.a, D1.4.10.2). *)
-  let al := if (al <= U128)%CMP then U128 else al in
+  (* [al] is the frame's [sao_align], which the oracle guarantees is at
+     least U128 (16 bytes); see the SP alignment invariant above. *)
   let load_imm := ARMv8AFopn_smart_subi tmp rspi sf_sz in
   let i0 := ARMv8AFopn_align tmp tmp al in
   let i1 := ARMv8AFopn_mov r rspi in

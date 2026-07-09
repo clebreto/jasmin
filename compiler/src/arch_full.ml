@@ -37,6 +37,14 @@ module type Core_arch = sig
 
   val callstyle : reg callstyle
 
+  (* Minimal alignment of every stack frame. Frame sizes are rounded up to
+     the frame's alignment (see [stack_frame_allocation_size]), so this
+     bounds the alignment the stack pointer keeps across calls. AArch64
+     requires 16 bytes (SP alignment checking, Arm ARM DDI0487M.a,
+     D1.4.10.2); other architectures have no requirement beyond the one of
+     the stack slots themselves. *)
+  val sp_min_align : Wsize.wsize
+
   val known_implicits : (Name.t * string) list
 
   val is_ct_asm_op : asm_op -> bool
