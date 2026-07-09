@@ -49,7 +49,8 @@ Require Import
   armv8a
   armv8a_params_core
   armv8a_params_core_proof
-  armv8a_params_common_proof.
+  armv8a_params_common_proof
+  armv8a_stack_zeroization_proof.
 Require Export armv8a_params.
 
 Set SsrOldRewriteGoalsOrder.  (* change Set to Unset when porting the file, then remove the line when requiring MathComp >= 2.6 *)
@@ -1047,6 +1048,20 @@ End ASM_GEN.
 
 Lemma armv8a_hshp : slh_lowering_proof.h_sh_params (ap_shp armv8a_params).
 Proof. by constructor; move=> ???? []. Qed.
+
+(* ------------------------------------------------------------------------ *)
+(* Stack zeroization. *)
+
+Section STACK_ZEROIZATION.
+
+Lemma armv8a_hszparams : h_stack_zeroization_params (ap_szp armv8a_params).
+Proof.
+  split.
+  + exact: armv8a_stack_zero_cmd_not_ext_lbl.
+  exact: armv8a_stack_zero_cmdP.
+Qed.
+
+End STACK_ZEROIZATION.
 
 (* ------------------------------------------------------------------------ *)
 (* Shared hypotheses. *)
