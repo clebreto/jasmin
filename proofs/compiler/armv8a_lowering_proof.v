@@ -879,6 +879,70 @@ Lemma rol_ror_shift_amount ws (x1 : word U8) :
      = ((wsize_bits ws - wunsigned x1) mod wsize_bits ws)%Z.
 Proof. by case/orP => /eqP ->; rewrite sub_wordE u8_sub_amount_mod. Qed.
 
+(* TODO: factorize with x86/riscv *)
+Lemma to_word_m sz sz' a w :
+  to_word sz a = ok w ->
+  (sz' <= sz)%CMP ->
+  to_word sz' a = ok (zero_extend sz' w).
+Proof.
+  clear.
+  case/to_wordI' => n [] m [] sz_le_n ->{a} ->{w} /= sz'_le_sz.
+  by rewrite truncate_word_le ?zero_extend_idem // (cmp_le_trans sz'_le_sz sz_le_n).
+Qed.
+
+(* Masking a u8 word with [wsize_bits - 1] is reduction modulo the operand
+   size, for the two register widths. *)
+Lemma wand_mask_mod ws (x : word U8) :
+  (ws == U64) || (ws == U32)
+  -> wunsigned (wand x (wrepr U8 (wsize_bits ws - 1)))
+     = (wunsigned x mod wsize_bits ws)%Z.
+Proof.
+  by case/orP => /eqP ->; [ exact: (wand_modulo x 6) | exact: (wand_modulo x 5) ].
+Qed.
+
+(* An accepted shift amount evaluates, modulo the operand size, to the same
+   value as the original expression; and reading it needs no new variables. *)
+Lemma check_shift_exprP ws e e' s v w :
+  check_shift_expr ws e = Some e'
+  -> (ws == U64) || (ws == U32)
+  -> sem_pexpr true (p_globs p) s e = ok v
+  -> to_word U8 v = ok w
+  -> [/\ Sv.Subset (read_e e') (read_e e)
+       & exists v' (w' : word U8),
+           [/\ sem_pexpr true (p_globs p) s e' = ok v'
+             , to_word U8 v' = ok w'
+             & wunsigned w = (wunsigned w' mod wsize_bits ws)%Z ] ].
+Proof.
+  rewrite /check_shift_expr => h hws; move: h.
+  case en: is_wconst => [ n | ].
+  - case: eqP => [n_in_range|//] [<-] ok_v ok_w.
+    split; first by [].
+    exists v, w; split=> //.
+    assert (hn := is_wconstP true (p_globs p) s en).
+    move: hn; rewrite ok_v /= ok_w => -[?]; subst n.
+    by rewrite {1}n_in_range (wand_mask_mod _ hws).
+  case: {en} e => // -[] // sz' a b.
+  case en: is_wconst => [ n | ]; last by [].
+  case: eqP => [?|//]; subst n.
+  move=> [<-] /=.
+  rewrite /sem_sop2 /=.
+  t_xrbindP=> va ok_a vb ok_b wa ok_wa wb ok_wb <-{v} ok_w.
+  split.
+  - clear; rewrite {2}/read_e /= !read_eE; SvD.fsetdec.
+  assert (hb := is_wconstP true (p_globs p) s en).
+  move: hb; rewrite ok_b /= => hb.
+  exists va, (zero_extend U8 wa); split=> //.
+  - exact: (to_word_m ok_wa (wsize_le_U8 _)).
+  move: ok_w => /truncate_wordP [_ ->].
+  rewrite -wand_zero_extend; last exact: wsize_le_U8.
+  have hwb : zero_extend U8 wb = wrepr U8 (wsize_bits ws - 1).
+  - have h' := to_word_m ok_wb (wsize_le_U8 _).
+    move: h'; rewrite hb => h'.
+    exact: (esym (ok_inj h')).
+  rewrite hwb.
+  by rewrite (wand_mask_mod _ hws).
+Qed.
+
 Lemma large_arith_immP ws mn es imm :
   large_arith_imm ws mn es = Some imm
   -> [/\ ws = U64
@@ -943,7 +1007,10 @@ Proof.
         end
       ].
     all: repeat (match goal with |- context[ if _ then _ else _ ] => case: ifP => hif end).
-    all: try (move=> /oassertP [hchk]).
+    all: try (match goal with
+              | [ |- context[ check_shift_expr ] ] =>
+                  apply: obindP => amt hchk
+              end).
 
     all: move=> [???] hsemop; subst mn' e0' e1'.
     all: first
@@ -1021,17 +1088,19 @@ Proof.
         move: hsemop => /sem_sop2I /= [x0 [x1 [w2 [hx0 hx1 hop hw]]]];
         move: hop => [?]; subst w2;
         move: hw => /Vword_inj [?]; subst ws'; move=> /= ?; subst w;
-        assert (hwc := is_wconstP true (p_globs p) s hconst);
-        move: hwc; rewrite hseme1 /= hx1 => -[?]; subst c;
+        have [hsub [v1' [w1' [hsem1' hw1' heq]]]] :=
+          check_shift_exprP hchk hwsx hseme1 hx1;
         (split;
-          last (split; [ exact: (disj_fvars_read_es2 hfve0 hfve1) | by [] ]));
-        (exists [:: v0; v1];
-          first by rewrite /sem_pexprs /= hseme0 hseme1 /=);
+          last (split;
+            [ apply: (disj_fvars_read_es2 hfve0);
+              exact: (disjoint_w hsub hfve1)
+            | by [] ]));
+        (exists [:: v0; v1'];
+          first by rewrite /sem_pexprs /= hseme0 hsem1' /=);
         move: (hwsx); rewrite orbC => hval;
-        move: hchk; rewrite /check_shift_amount => /andP [/ZleP hchk0 /ZltP hchk1];
-        rewrite /exec_sopn /sopn_sem /sopn_sem_ /= hval /= hx0 hx1 /=;
+        rewrite /exec_sopn /sopn_sem /sopn_sem_ /= hval /= hx0 hw1' /=;
         rewrite /semi_to_atype !computational_eq_refl /=;
-        rewrite /armv8a_shift_semi (Z.mod_small _ _ (conj hchk0 hchk1));
+        rewrite /armv8a_shift_semi -heq;
         by rewrite /sem_shr /sem_shl /sem_sar /sem_shift zero_extend_u
       | (* MOV: a shift or rotate by zero, i.e. the identity. *)
         lazymatch goal with
@@ -1176,7 +1245,10 @@ Proof.
           end
         ].
       all: repeat (match goal with |- context[ if _ then _ else _ ] => case: ifP => _ end).
-      all: try (move=> /oassertP [_]).
+      all: try (match goal with
+                | [ |- context[ check_shift_expr ] ] =>
+                    apply: obindP => ? ?
+                end).
       all: by move=> [<- _ _].
     }
     move: hdflt => [[vs ok_vs hsopn] [hfv htout]].
@@ -1222,7 +1294,10 @@ Proof.
       end
     ].
   all: repeat (match goal with |- context[ if _ then _ else _ ] => case: ifP => hif end).
-  all: try (move=> /oassertP [hchk]).
+  all: try (match goal with
+            | [ |- context[ check_shift_expr ] ] =>
+                apply: obindP => amt hchk
+            end).
   all: move=> [???] hsemop; subst mn' e0' e1'.
   all: have [? hmns [e he1' [c hc himm]]] := large_arith_immP hlarge.
   all: try (exfalso; exact: (Bool.diff_false_true hmns)).
