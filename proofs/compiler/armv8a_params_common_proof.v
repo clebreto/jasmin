@@ -5,11 +5,9 @@
    [armv8a_params_core_proof.v] through the [to_opn] wrapper (which tags the
    core op with [Oarmv8a]) to the generic linear-semantics [sem_fopn_args] and
    [eval_instr], for the single-instruction builders used by the compiler's
-   stack handling: [mov], [addi], [subi] and [align].
-
-   As in [armv8a_params_core_proof.v], the [li]-based combinators are deferred:
-   see that file's header for why AArch64's MOVZ/MOVK immediate materialization
-   is not a straightforward port of ARMv7-M's MOV/MOVT. *)
+   stack handling: [mov], [addi], [subi] and [align], and for the
+   [li]-based smart combinators [smart_addi], [smart_subi] and their
+   in-place [_tmp] variants. *)
 
 From Coq Require Import Lia.
 From mathcomp Require Import ssreflect ssrfun ssrbool ssrnat eqtype ssralg.
@@ -178,6 +176,98 @@ Proof.
 Qed.
 
 End ARMV8A_OP.
+
+Lemma smart_addi_sem_fopn_args (xi:var_i) y imm s (w : word Uptr) :
+  convertible xi.(vtype) (aword armv8a_reg_size) ->
+  let: lc := ARMv8AFopn_smart_addi xi y imm in
+  is_arith_small imm \/ xi <> v_var y :> var ->
+  get_var true (evm s) (v_var y) >>= to_word Uptr = ok w ->
+  exists vm',
+    [/\ sem_fopns_args s lc = ok (with_vm s vm')
+      , vm' =[\ Sv.singleton xi ] evm s
+      & get_var true vm' xi = ok (Vword (w + wrepr reg_size imm)%R) ].
+Proof.
+  move=> hc hor hget; rewrite -sem_fopns_equiv.
+  have := [elaborate
+    ARMv8AFopn_coreP.gen_smart_opi_sem_fopn_args
+      (is_small := is_arith_small) (neutral := Some 0%Z)
+      (@ARMv8AFopn_coreP.add_sem_fopn_args _ _)
+      (@ARMv8AFopn_coreP.addi_sem_fopn_args _ _)].
+  move=> /(_ _ xi xi y imm s w) [] //.
+  + by move=> >; rewrite wrepr0 GRing.addr0.
+  move=> vm' [hsem heq heqx]; exists vm'; split => //=.
+  by apply: eq_exI heq; clear; SvD.fsetdec.
+Qed.
+
+Lemma smart_subi_sem_fopn_args (xi:var_i) y imm s (w : word Uptr) :
+  convertible xi.(vtype) (aword armv8a_reg_size) ->
+  let: lc := ARMv8AFopn_smart_subi xi y imm in
+  is_arith_small imm \/ xi <> v_var y :> var ->
+  get_var true (evm s) (v_var y) >>= to_word Uptr = ok w ->
+  exists vm',
+    [/\ sem_fopns_args s lc = ok (with_vm s vm')
+      , vm' =[\ Sv.singleton xi ] evm s
+      & get_var true vm' xi = ok (Vword (w - wrepr reg_size imm)%R) ].
+Proof.
+  move=> hc hor hget; rewrite -sem_fopns_equiv.
+  have := [elaborate
+    ARMv8AFopn_coreP.gen_smart_opi_sem_fopn_args
+      (is_small := is_arith_small) (neutral := Some 0%Z)
+      (@ARMv8AFopn_coreP.sub_sem_fopn_args _ _)
+      (@ARMv8AFopn_coreP.subi_sem_fopn_args _ _)].
+  move=> /(_ _ xi xi y imm s w) [] //.
+  + by move=> >; rewrite wrepr0 GRing.subr0.
+  move=> vm' [hsem heq heqx]; exists vm'; split => //=.
+  by apply: eq_exI heq; clear; SvD.fsetdec.
+Qed.
+
+Lemma smart_addi_tmp_sem_fopn_args s (tmp xi : var_i) imm (w : word Uptr) :
+  convertible xi.(vtype) (aword armv8a_reg_size) ->
+  let: lcmd := ARMv8AFopn_smart_addi_tmp xi tmp imm in
+  v_var xi <> v_var tmp ->
+  convertible (vtype tmp) (aword Uptr) ->
+  get_var true (evm s) (v_var xi) >>= to_word Uptr = ok w ->
+  exists vm',
+    [/\ sem_fopns_args s lcmd = ok (with_vm s vm')
+      , evm s =[\ Sv.add xi (Sv.singleton tmp) ] vm'
+      & get_var true vm' xi = ok (Vword (w + wrepr reg_size imm)%R) ].
+Proof.
+  move=> hc hne hty hget; rewrite -sem_fopns_equiv.
+  have := [elaborate
+    ARMv8AFopn_coreP.gen_smart_opi_sem_fopn_args
+      (is_small := is_arith_small) (neutral := Some 0%Z)
+      (@ARMv8AFopn_coreP.add_sem_fopn_args _ _)
+      (@ARMv8AFopn_coreP.addi_sem_fopn_args _ _)].
+  move=> /(_ _ tmp xi xi imm s w) [] //.
+  + by move=> >; rewrite wrepr0 GRing.addr0.
+  + by right => h; rewrite h in hne.
+  move=> vm' [hsem heq heqx]; exists vm'; split => //=.
+  by apply: eq_exS.
+Qed.
+
+Lemma smart_subi_tmp_sem_fopn_args s (tmp xi : var_i) imm (w : word Uptr) :
+  convertible xi.(vtype) (aword armv8a_reg_size) ->
+  let: lcmd := ARMv8AFopn_smart_subi_tmp xi tmp imm in
+  v_var xi <> v_var tmp ->
+  convertible (vtype tmp) (aword Uptr) ->
+  get_var true (evm s) (v_var xi) >>= to_word Uptr = ok w ->
+  exists vm',
+    [/\ sem_fopns_args s lcmd = ok (with_vm s vm')
+      , evm s =[\ Sv.add xi (Sv.singleton tmp) ] vm'
+      & get_var true vm' xi = ok (Vword (w - wrepr reg_size imm)%R) ].
+Proof.
+  move=> hc hne hty hget; rewrite -sem_fopns_equiv.
+  have := [elaborate
+    ARMv8AFopn_coreP.gen_smart_opi_sem_fopn_args
+      (is_small := is_arith_small) (neutral := Some 0%Z)
+      (@ARMv8AFopn_coreP.sub_sem_fopn_args _ _)
+      (@ARMv8AFopn_coreP.subi_sem_fopn_args _ _)].
+  move=> /(_ _ tmp xi xi imm s w) [] //.
+  + by move=> >; rewrite wrepr0 GRing.subr0.
+  + by right => h; rewrite h in hne.
+  move=> vm' [hsem heq heqx]; exists vm'; split => //=.
+  by apply: eq_exS.
+Qed.
 
 End WITH_PARAMS.
 
