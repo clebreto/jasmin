@@ -290,17 +290,35 @@ Definition lower_Papp2_op
       Some (ORR, e0, [:: e1 ])
   | Olxor _ =>
       Some (EOR, e0, [:: e1 ])
+  (* Logical/arithmetic shifts by a variable amount are NOT lowered to a bare
+     A64 shift: the register form of LSR/LSL/ASR shifts by [amount mod wsize],
+     whereas the Jasmin source shifts clamp the amount to [wsize] (shifting all
+     bits out yields 0). The two disagree once the amount reaches [wsize]. We
+     therefore only lower a compile-time constant amount that is in [0, wsize),
+     where [mod] and the clamp coincide (matching the constant-only discipline
+     of [Orol] and [get_arg_shift]). Rotates ([Oror]/[Orol]) are exempt: the
+     rotation is periodic, so [mod] is already the intended semantics. *)
   | Olsr ws' =>
       let%opt _ := oassert (ws' == ws) in
-      if is_zero U8 e1 then Some (MOV, e0, [::])
-      else Some (LSR, e0, [:: e1 ])
+      let%opt c := is_wconst U8 e1 in
+      if c == 0%w then Some (MOV, e0, [::])
+      else
+        let%opt _ := oassert (check_shift_amount ws (wunsigned c)) in
+        Some (LSR, e0, [:: e1 ])
   | Olsl (Op_w ws') =>
       let%opt _ := oassert (ws' == ws) in
-      Some (LSL, e0, [:: e1 ])
+      let%opt c := is_wconst U8 e1 in
+      if c == 0%w then Some (MOV, e0, [::])
+      else
+        let%opt _ := oassert (check_shift_amount ws (wunsigned c)) in
+        Some (LSL, e0, [:: e1 ])
   | Oasr (Op_w ws') =>
       let%opt _ := oassert (ws' == ws) in
-      if is_zero U8 e1 then Some (MOV, e0, [::])
-      else Some (ASR, e0, [:: e1 ])
+      let%opt c := is_wconst U8 e1 in
+      if c == 0%w then Some (MOV, e0, [::])
+      else
+        let%opt _ := oassert (check_shift_amount ws (wunsigned c)) in
+        Some (ASR, e0, [:: e1 ])
   | Oror ws' =>
       let%opt _ := oassert (ws' == ws) in
       if is_zero U8 e1 then Some (MOV, e0, [::])

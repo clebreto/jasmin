@@ -6,11 +6,7 @@
    [lloads_correct] for the custom [armv8a_lloads]), together with the
    scratch-register facts and the (trivial) lower-addressing hypotheses.
 
-   Still missing before the [h_architecture_params] record can be built:
-   the lowering proof (armv8a_lowering_proof.v), the assembly-generation
-   hypotheses (condition evaluation and the [assemble_extra] lemmas for
-   [Oarmv8a_swap], [Oarmv8a_add_large_imm] and [Oarmv8a_smart_li]) and the
-   stack-zeroization proof. *)
+   All hypotheses are proven; the complete record is [armv8a_h_params]. *)
 From Coq Require Import Relations.
 From mathcomp Require Import ssreflect ssrbool ssrfun eqtype ssrnat finfun.
 From mathcomp Require Import ssralg.
@@ -47,6 +43,8 @@ Require Import
   armv8a_extra
   armv8a_instr_decl
   armv8a
+  armv8a_lowering
+  armv8a_lowering_proof
   armv8a_params_core
   armv8a_params_core_proof
   armv8a_params_common_proof
@@ -562,6 +560,12 @@ Proof. exists R16; exact: to_identK. Qed.
 Lemma armv8a_ok_lip_tmp2 :
   exists r : reg_t, of_ident (lip_tmp2 (ap_lip armv8a_params)) = Some r.
 Proof. exists R17; exact: to_identK. Qed.
+
+(* ------------------------------------------------------------------------ *)
+(* Lowering hypotheses. *)
+
+Definition armv8a_hloparams : h_lowering_params (ap_lop armv8a_params).
+Proof. split=> *; [exact: lower_callP | exact: it_lower_callP]. Qed.
 
 (* ------------------------------------------------------------------------ *)
 (* Lowering of complex addressing mode for RISC-V.
@@ -1102,5 +1106,21 @@ Proof.
   constructor=> //=.
   by apply (truncate_word_uincl htr).
 Qed.
+
+(* ------------------------------------------------------------------------ *)
+
+Definition armv8a_h_params : h_architecture_params armv8a_params :=
+  {|
+    hap_hsap        := armv8a_hsaparams;
+    hap_hlip        := armv8a_hliparams;
+    ok_lip_tmp      := armv8a_ok_lip_tmp;
+    ok_lip_tmp2     := armv8a_ok_lip_tmp2;
+    hap_hlop        := armv8a_hloparams;
+    hap_hlap        := armv8a_hlaparams;
+    hap_hagp        := armv8a_hagparams;
+    hap_hshp        := armv8a_hshp;
+    hap_hszp        := armv8a_hszparams;
+    hap_is_move_opP := armv8a_is_move_opP;
+  |}.
 
 End Section.
