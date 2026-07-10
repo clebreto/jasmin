@@ -112,13 +112,17 @@ module Regalloc = Regalloc (Arch)
    ([stack_frame_allocation_size]), so raise the alignment of every function
    that actually uses the stack. Functions with no stack footprint at all
    keep their alignment (an export function may only use SavedStackNone when
-   its alignment is U8). *)
+   its alignment is U8). The architecture default can be overridden with
+   [-sp-min-align]. *)
 let enforce_sp_min_align ~stack_size ~extra_size ~max_stk align =
+  let sp_min_align =
+    Option.default Arch.sp_min_align !Glob_options.sp_min_align
+  in
   if Z.equal max_stk Z.zero
      && Z.equal stack_size Z.zero
      && extra_size = 0
   then align
-  else if wsize_lt align Arch.sp_min_align then Arch.sp_min_align
+  else if wsize_lt align sp_min_align then sp_min_align
   else align
 
 let memory_analysis pp_sr pp_err ~debug up =
