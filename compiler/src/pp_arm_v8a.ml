@@ -11,6 +11,7 @@ open PrintASM
 open Asm_utils
 
 (* Architecture imports*)
+open Arm_common
 open Armv8a_decl
 open Armv8a_instr_decl
 
@@ -131,7 +132,7 @@ module Armv8aTarget : AsmTargetBuilder.AsmTarget with
   type reg = Armv8a_decl.register
   and type regx = Arch_utils.empty
   and type xreg = Arch_utils.empty
-  and type rflag = Armv8a_decl.rflag
+  and type rflag = Arm_common.rflag
   and type cond = Armv8a_decl.condt
   and type asm_op = armv8a_asm_op
 = struct
@@ -139,7 +140,7 @@ module Armv8aTarget : AsmTargetBuilder.AsmTarget with
   type reg = Armv8a_decl.register
   type regx = Arch_utils.empty
   type xreg = Arch_utils.empty
-  type rflag = Armv8a_decl.rflag
+  type rflag = Arm_common.rflag
   type cond = Armv8a_decl.condt
   type asm_op = armv8a_asm_op
 

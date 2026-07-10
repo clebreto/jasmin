@@ -10,6 +10,7 @@ open PrintASM
 open Asm_utils
 
 (* Architecture imports*)
+open Arm_common
 open Arm_decl
 open Arm_instr_decl
 open Arm_expand_imm
@@ -197,7 +198,7 @@ module ArmTarget : AsmTargetBuilder.AsmTarget with
 type reg = Arm_decl.register
 and type regx = Arch_utils.empty
 and type xreg = Arch_utils.empty
-and type rflag = Arm_decl.rflag
+and type rflag = Arm_common.rflag
 and type cond = Arm_decl.condt
 and type asm_op = arm_op
 = struct
@@ -205,7 +206,7 @@ and type asm_op = arm_op
   type reg = Arm_decl.register
   type regx = Arch_utils.empty
   type xreg = Arch_utils.empty
-  type rflag = Arm_decl.rflag
+  type rflag = Arm_common.rflag
   type cond = Arm_decl.condt
   type asm_op = arm_op
 
