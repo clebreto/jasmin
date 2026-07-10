@@ -254,9 +254,12 @@ Definition lower_Papp1 (ws : wsize) (op : sop1) (e : pexpr) : low_expr :=
       le_skip
   end.
 
+(* Recognize a multiplication whose product can be fused into MADD/MSUB at
+   width [ws]: any product at width at least [ws] qualifies, since only the
+   low [ws] bits of the result are kept. *)
 Definition is_mul (ws : wsize) (e : pexpr) : option (pexpr * pexpr) :=
   if e is Papp2 (Omul (Op_w ws')) x y
-  then if ws' == ws then Some (x, y) else None
+  then if (ws <= ws')%CMP then Some (x, y) else None
   else None.
 
 (* Accept a shift amount that is either a compile-time constant already in

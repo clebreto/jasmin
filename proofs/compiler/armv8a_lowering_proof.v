@@ -740,7 +740,10 @@ Qed.
 Section IS_MUL.
 
 Variant is_mul_spec (ws : wsize) (e: pexpr) : option (pexpr * pexpr) -> Type :=
-  | IsMulSome x y : e = Papp2 (Omul (Op_w ws)) x y -> is_mul_spec (Some (x, y))
+  | IsMulSome ws' x y :
+      (ws <= ws')%CMP
+      -> e = Papp2 (Omul (Op_w ws')) x y
+      -> is_mul_spec (Some (x, y))
   | IsMulNone : is_mul_spec None.
 
 #[local] Hint Constructors is_mul_spec : core.
@@ -753,7 +756,8 @@ Proof.
   case: op; try (move=> *; exact: IsMulNone).
   move=> c; case: c; try (move=> *; exact: IsMulNone).
   move=> ws'.
-  case: (ws' =P ws) => [->|_]; [ by apply: IsMulSome | exact: IsMulNone ].
+  case hle: (ws <= ws')%CMP; last exact: IsMulNone.
+  exact: (IsMulSome hle erefl).
 Qed.
 
 End IS_MUL.
@@ -1000,7 +1004,8 @@ Proof.
     all: repeat first
       [ move=> /oassertP [/eqP ?]; subst ws''
       | match goal with
-        | [ |- context[ is_mul ] ] => case: is_mulP => [? ? ?|]; subst
+        | [ |- context[ is_mul ] ] =>
+            case: is_mulP => [wsm ? ? hlem ?|]; subst
         end
       | match goal with
         | [ |- context[ is_wconst ] ] => case hconst: is_wconst => [c|//]
@@ -1191,13 +1196,15 @@ Proof.
         move: hsemop => /sem_sop2I /= [x0 [x1 [w2 [hx0 hx1 hop hw]]]];
         move: hop => [?]; subst w2;
         move: hw => /Vword_inj [?]; subst ws'; move=> /= ?; subst w;
-        (* The product is at width [ws], the outer operation at [ws'']:
-           truncating the product at [ws''] bounds [ws'' <= ws], and with
-           [hws : ws <= ws''] both widths coincide. *)
+        (* The product is at width [wsm >= ws] (from [is_mul]), the outer
+           operation at [ws'' >= ws]: only the low [ws] bits are kept, so
+           the widths need not coincide and the zero extensions distribute
+           over the operations. *)
         (first
-          [ move: hx0; rewrite /= => /truncate_wordP [hle ?]; subst x0
-          | move: hx1; rewrite /= => /truncate_wordP [hle ?]; subst x1 ]);
-        (have ? := cmp_le_antisym hws hle); subst ws'';
+          [ move: hx0; rewrite /= => /truncate_wordP [hle ?]; subst x0;
+            rename hx1 into haddend
+          | move: hx1; rewrite /= => /truncate_wordP [hle ?]; subst x1;
+            rename hx0 into haddend ]);
         (split;
           last (split;
             [ first
@@ -1207,10 +1214,14 @@ Proof.
         (eexists;
           first by rewrite /sem_pexprs /= hsemx hsemy ?hseme0 ?hseme1 /=);
         move: (hwsx); rewrite orbC => hval;
-        rewrite /exec_sopn /sopn_sem /sopn_sem_ /= hval /= hwx hwy ?hx0 ?hx1 /=;
+        rewrite /exec_sopn /sopn_sem /sopn_sem_ /= hval /=
+          (to_word_m hwx hlem) (to_word_m hwy hlem) (to_word_m haddend hws) /=;
         rewrite /semi_to_atype !computational_eq_refl /=;
         rewrite /armv8a_MADD_semi /armv8a_MSUB_semi
-          ?add_wordE ?sub_wordE ?mul_wordE !zero_extend_u;
+          ?add_wordE ?sub_wordE ?mul_wordE
+          ?(wadd_zero_extend _ _ hws) ?(wsub_zero_extend _ _ hws)
+          ?(zero_extend_idem _ hws) ?(wmul_zero_extend _ _ hlem)
+          ?zero_extend_u;
         first [ by [] | by rewrite GRing.addrC ] ].
   }
 
@@ -1238,7 +1249,7 @@ Proof.
       all: repeat first
         [ move=> /oassertP [/eqP ?]; subst ws''
         | match goal with
-          | [ |- context[ is_mul ] ] => case: is_mulP => [? ? ?|]; subst
+          | [ |- context[ is_mul ] ] => case: is_mulP => [? ? ? ? ?|]; subst
           end
         | match goal with
           | [ |- context[ is_wconst ] ] => case hc': is_wconst => [c'|//]
@@ -1287,7 +1298,7 @@ Proof.
   all: repeat first
     [ move=> /oassertP [/eqP ?]; subst ws''
     | match goal with
-      | [ |- context[ is_mul ] ] => case: is_mulP => [? ? ?|]; subst
+      | [ |- context[ is_mul ] ] => case: is_mulP => [? ? ? ? ?|]; subst
       end
     | match goal with
       | [ |- context[ is_wconst ] ] => case hconst: is_wconst => [c'|//]
