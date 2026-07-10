@@ -73,6 +73,7 @@ Separate Extraction
   x86_instr_decl
   x86_extra
   x86_params
+  arm_common
   arm_decl
   arm_instr_decl
   arm_extra
