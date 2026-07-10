@@ -542,6 +542,15 @@ Let string_of_armv8a_mnemonic mn :=
 Notation osz_valid := ((osz == U32) || (osz == U64)) (only parsing).
 Notation msbf := (if osz == U64 then MSB_MERGE else MSB_CLEAR) (only parsing).
 
+(* Jasmin-source and EasyCrypt name of the operation: the mnemonics that
+   exist in both the W and X forms are size-suffixed (ADD_32 / ADD_64, as
+   on x86), matching the intrinsic parser ([armv8a_prim_string] below);
+   fixed-size mnemonics keep their bare name. *)
+Let armv8a_mn_str (mn : armv8a_mnemonic) : unit -> string :=
+  if mn \in sized_mnemonics
+  then pp_sz (string_of_armv8a_mnemonic mn) osz
+  else pp_s (string_of_armv8a_mnemonic mn).
+
 (* Argument kinds.
    Immediate operands are checked against the A64 encoding rules
    (armv8a_decl.v): [CAimmC_armv8a_arith_imm] (imm12, optionally shifted
@@ -619,7 +628,7 @@ Definition mk_arith_instr mn (ick : option caimm_checker_s)
       id_args_kinds := ak_rrr_or_imm ick;
       id_eq_size := refl_equal;
       id_check_dest := refl_equal;
-      id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+      id_str_jas := armv8a_mn_str mn;
       id_safe := [::];
       id_pp_asm := pp_armv8a_op mn opts;
       id_valid := osz_valid;
@@ -651,7 +660,7 @@ Definition mk_ariths_instr mn (ick : option caimm_checker_s)
       id_args_kinds := ak_rrr_or_imm ick;
       id_eq_size := refl_equal;
       id_check_dest := refl_equal;
-      id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+      id_str_jas := armv8a_mn_str mn;
       id_safe := [::];
       id_pp_asm := pp_armv8a_op mn opts;
       id_valid := osz_valid;
@@ -769,7 +778,7 @@ Definition mk_carry_instr mn (semi : word osz -> word osz -> bool -> ty_w osz)
     id_args_kinds := ak_rrr;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
@@ -792,7 +801,7 @@ Definition mk_carrys_instr mn (semi : word osz -> word osz -> bool -> ty_nzcv_w 
     id_args_kinds := ak_rrr;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
@@ -913,7 +922,7 @@ Definition armv8a_NEG_instr : instr_desc_t :=
       id_args_kinds := ak_rr;
       id_eq_size := refl_equal;
       id_check_dest := refl_equal;
-      id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+      id_str_jas := armv8a_mn_str mn;
       id_safe := [::];
       id_pp_asm := pp_armv8a_op mn opts;
       id_valid := osz_valid;
@@ -943,7 +952,7 @@ Definition mk_rrr_instr mn (semi : word osz -> word osz -> ty_w osz)
     id_args_kinds := ak_rrr;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
@@ -1030,7 +1039,7 @@ Definition mk_madd_instr mn (semi : word osz -> word osz -> word osz -> ty_w osz
     id_args_kinds := ak_rrrr;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
@@ -1087,7 +1096,7 @@ Definition mk_mull_instr mn (semi : word U32 -> word U32 -> ty_r)
     id_args_kinds := ak_rrr;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     (* [UMULL <Xd>, <Wn>, <Wm>]: the sources are always W registers. *)
     id_pp_asm := pp_armv8a_op_szs mn [:: osz; U32; U32 ];
@@ -1144,7 +1153,7 @@ Definition mk_maddl_instr mn (semi : word U32 -> word U32 -> word U64 -> ty_r)
     id_args_kinds := ak_rrrr;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     (* [UMADDL <Xd>, <Wn>, <Wm>, <Xa>]: the multiply sources are always W
        registers. *)
@@ -1203,7 +1212,7 @@ Definition mk_mulh_instr mn (semi : word U64 -> word U64 -> ty_r)
     id_args_kinds := ak_rrr;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz == U64;
@@ -1380,7 +1389,7 @@ Definition armv8a_MVN_instr : instr_desc_t :=
       id_args_kinds := ak_rr_or_imm no_imm;
       id_eq_size := refl_equal;
       id_check_dest := refl_equal;
-      id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+      id_str_jas := armv8a_mn_str mn;
       id_safe := [::];
       id_pp_asm := pp_armv8a_op mn opts;
       id_valid := osz_valid;
@@ -1426,7 +1435,7 @@ Definition mk_shift_instr mn (op : forall sz, word sz -> Z -> word sz)
     id_args_kinds := ak_rrr ++ ak_rr_imm_shift;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
@@ -1571,7 +1580,7 @@ Definition armv8a_BFC_instr : instr_desc_t :=
     id_args_kinds := ak_r_imm8_imm8;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := armv8a_BFC_semi_sc;
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
@@ -1648,7 +1657,7 @@ Definition armv8a_BFI_instr : instr_desc_t :=
     id_args_kinds := ak_rr_imm8_imm8;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := armv8a_BFI_semi_sc;
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
@@ -1725,7 +1734,7 @@ Definition armv8a_BFXIL_instr : instr_desc_t :=
     id_args_kinds := ak_rr_imm8_imm8;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := armv8a_BFXIL_semi_sc;
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
@@ -1772,7 +1781,7 @@ Definition mk_bfx_instr mn (shr : word osz -> Z -> word osz) : instr_desc_t :=
     id_args_kinds := ak_rr_imm_imm_extr;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := bit_field_extract_semi_sc;
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
@@ -1857,7 +1866,7 @@ Definition armv8a_EXTR_instr : instr_desc_t :=
     id_args_kinds := ak_rrr_imm_shift;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
@@ -1899,7 +1908,7 @@ Definition armv8a_MOV_instr : instr_desc_t :=
       ak_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAimm CAimmC_armv8a_mov_imm osz ] ] ];
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
@@ -1922,7 +1931,7 @@ Definition mk_movw_instr mn (semi : word U16 -> word U8 -> ty_w osz)
     id_args_kinds := ak_r_imm16_shift;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
@@ -1992,7 +2001,7 @@ Definition armv8a_MOVK_instr : instr_desc_t :=
     id_args_kinds := ak_r_imm16_shift;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
@@ -2027,7 +2036,7 @@ Definition armv8a_ADR_instr : instr_desc_t :=
     id_args_kinds := ak_reg_addr;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz == U64;
@@ -2061,7 +2070,7 @@ Definition mk_extend_instr mn (in_ws : wsize) (sign : bool) (valid : bool)
     id_args_kinds := ak_reg_reg;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     (* [SXTB <Xd>, <Wn>] / [UXTB <Wd>, <Wn>]: the source is always a W
        register, and so is the destination of the zero-extensions. *)
@@ -2166,7 +2175,7 @@ Definition mk_unary_instr mn (semi : word osz -> ty_w osz) (valid : bool)
     id_args_kinds := ak_reg_reg;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := valid;
@@ -2289,7 +2298,7 @@ Definition armv8a_REV32_instr : instr_desc_t :=
     id_args_kinds := ak_reg_reg;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz == U64;
@@ -2317,7 +2326,7 @@ Definition mk_cmp_instr mn (ick : option caimm_checker_s)
       id_args_kinds := ak_rr_or_imm ick;
       id_eq_size := refl_equal;
       id_check_dest := refl_equal;
-      id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+      id_str_jas := armv8a_mn_str mn;
       id_safe := [::];
       id_pp_asm := pp_armv8a_op mn opts;
       id_valid := osz_valid;
@@ -2414,7 +2423,7 @@ Definition mk_csel_instr mn (semi : word osz -> word osz -> bool -> ty_w osz)
     id_args_kinds := ak_rrr_cond;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
@@ -2509,7 +2518,7 @@ Definition mk_cset_instr mn (semi : bool -> ty_w osz) : instr_desc_t :=
     id_args_kinds := ak_r_cond;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
@@ -2599,7 +2608,7 @@ Definition armv8a_load_instr mn : instr_desc_t :=
     id_args_kinds := ak_reg_addr;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     (* The transferred register of the zero-extending narrow loads is
        always a W register ([LDRB <Wt>, ...]); the sign-extending loads
@@ -2774,7 +2783,7 @@ Definition armv8a_store_instr mn : instr_desc_t :=
     id_args_kinds := ak_reg_addr;
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
+    id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
     (* The transferred register of the narrow stores is always a W
        register ([STRB <Wt>, ...]). *)
