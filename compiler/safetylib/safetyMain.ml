@@ -66,6 +66,7 @@ let get_arch_with_analyze arch call_conv : (module ArchWithAnalyze) =
         module C = CoreArchFactory.Core_arch_ARMV8A
         module A = Arch_full.Arch_from_Core_arch (C)
 
-        (* Safety analysis is not implemented for ARMv8-A yet. *)
-        let analyze ?fmt:_ ~safety_param:_ _ _ = true
+        let analyze ?fmt:_ ~safety_param:_ _ _ =
+          hierror ~loc:Lnone ~kind:"safety analysis"
+            "the safety checker is not implemented for ARMv8-A"
       end)
