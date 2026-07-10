@@ -84,9 +84,6 @@ Separate Extraction
   armv8a_decl
   armv8a_instr_decl
   armv8a_extra
-  armv8a_params_core
-  armv8a_lowering
   armv8a_params
-  armv8a_stack_zeroization
   compiler
   wint_int.
