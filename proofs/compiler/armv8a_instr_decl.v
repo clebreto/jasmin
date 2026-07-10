@@ -105,13 +105,9 @@ Variant armv8a_mnemonic : Type :=
 
 (* Shifts *)
 | ASR                            (* Arithmetic shift right *)
-| ASRV                           (* Arithmetic shift right variable *)
 | LSL                            (* Logical shift left *)
-| LSLV                           (* Logical shift left variable *)
 | LSR                            (* Logical shift right *)
-| LSRV                           (* Logical shift right variable *)
 | ROR                            (* Rotate right *)
-| RORV                           (* Rotate right variable *)
 
 (* Bit field operations *)
 | BFC                            (* Bitfield clear *)
@@ -177,7 +173,7 @@ Definition armv8a_mnemonics : seq armv8a_mnemonic :=
     ; MUL; MADD; MSUB; SDIV; UDIV
     ; UMULL; SMULL; UMADDL; SMADDL; UMULH; SMULH
     ; AND; ANDS; BIC; BICS; ORR; EOR; MVN
-    ; ASR; ASRV; LSL; LSLV; LSR; LSRV; ROR; RORV
+    ; ASR; LSL; LSR; ROR
     ; BFC; BFI; BFXIL; SBFX; UBFX; EXTR
     ; MOV; MOVN; MOVZ; MOVK; ADR
     ; SXTB; SXTH; SXTW; UXTB; UXTH; UXTW
@@ -213,7 +209,7 @@ Definition sized_mnemonics : seq armv8a_mnemonic :=
   [:: ADD; ADDS; ADC; ADCS; SUB; SUBS; SBC; SBCS; NEG
     ; MUL; MADD; MSUB; SDIV; UDIV
     ; AND; ANDS; BIC; BICS; ORR; EOR; MVN
-    ; ASR; ASRV; LSL; LSLV; LSR; LSRV; ROR; RORV
+    ; ASR; LSL; LSR; ROR
     ; BFC; BFI; BFXIL; SBFX; UBFX; EXTR
     ; MOV; MOVN; MOVZ; MOVK
     ; SXTB; SXTH; UXTB; UXTH
@@ -292,13 +288,9 @@ Definition string_of_armv8a_mnemonic (mn : armv8a_mnemonic) : string :=
   | EOR => "EOR"
   | MVN => "MVN"
   | ASR => "ASR"
-  | ASRV => "ASRV"
   | LSL => "LSL"
-  | LSLV => "LSLV"
   | LSR => "LSR"
-  | LSRV => "LSRV"
   | ROR => "ROR"
-  | RORV => "RORV"
   | BFC => "BFC"
   | BFI => "BFI"
   | BFXIL => "BFXIL"
@@ -826,12 +818,6 @@ Definition armv8a_shift_semi
   {ws : wsize} (op : forall sz, word sz -> Z -> word sz)
   (wn : word ws) (wsham : word U8) : ty_w ws :=
   let sham := (wunsigned wsham mod wsize_bits ws)%Z in
-  op ws wn sham.
-
-Definition armv8a_shiftv_semi
-  {ws : wsize} (op : forall sz, word sz -> Z -> word sz)
-  (wn wm : word ws) : ty_w ws :=
-  let sham := (wunsigned wm mod wsize_bits ws)%Z in
   op ws wn sham.
 
 (* [C6.2.281 MOV (register)] ARM DDI 0487 M.a, p. 2413
@@ -1739,10 +1725,10 @@ Definition armv8a_MVN_instr : instr_desc_t :=
 (* -------------------------------------------------------------------- *)
 (* Shift instructions.
    The shift amount is the value of the second operand modulo the operand
-   size; the immediate forms are restricted by the argument checker. Both
-   the alias mnemonics (ASR, ...) accepting registers and immediates and
-   the base variable forms (ASRV, ...) accepting only registers are
-   provided. *)
+   size; the immediate forms are restricted by the argument checker. Only
+   the alias mnemonics (ASR, ...) are provided: they accept registers and
+   immediates, subsuming the base variable forms (ASRV, ...), which accept
+   only registers and are otherwise identical. *)
 
 Definition mk_shift_instr mn (op : forall sz, word sz -> Z -> word sz)
   : instr_desc_t :=
@@ -1768,30 +1754,6 @@ Definition mk_shift_instr mn (op : forall sz, word sz -> Z -> word sz)
     id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
   |}.
 
-Definition mk_shiftv_instr mn (op : forall sz, word sz -> Z -> word sz)
-  : instr_desc_t :=
-  let tin := [:: lword osz; lword osz ] in
-  let semi := armv8a_shiftv_semi (ws := osz) op in
-  {|
-    id_msb_flag := msbf;
-    id_tin := tin;
-    id_in := [:: Ea 1; Ea 2 ];
-    id_tout := [:: lword osz ];
-    id_out := [:: Ea 0 ];
-    id_semi := sem_lprod_ok tin semi;
-    id_nargs := 3;
-    id_args_kinds := ak_rrr;
-    id_eq_size := refl_equal;
-    id_check_dest := refl_equal;
-    id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
-    id_safe := [::];
-    id_pp_asm := pp_armv8a_op mn opts;
-    id_valid := osz_valid;
-    id_safe_wf := refl_equal;
-    id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
-    id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
-  |}.
-
 (* [C6.2.19 ASR (register)] ARM DDI 0487 M.a, p. 1820
    Arithmetic shift right (register)  This instruction shifts a register value
    right by a variable number of bits, shifting in copies of its sign bit, and
@@ -1803,23 +1765,11 @@ Definition mk_shiftv_instr mn (op : forall sz, word sz -> Z -> word sz)
    pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational
    information for this instruction.
    Syntax: ASR <Xd>, <Xn>, <Xm>  ==  ASRV <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     The description of ASRV gives the operational pseudocode for this instruction.
+   Operation (ASL, from the ASRV description):
+     constant bits(datasize) operand2 = X[m, datasize];
+     X[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);
 *)
 Definition armv8a_ASR_instr : instr_desc_t := mk_shift_instr ASR (@wsar).
-(* [C6.2.21 ASRV] ARM DDI 0487 M.a, p. 1824
-   Arithmetic shift right variable  This instruction shifts a register value
-   right by a variable number of bits, shifting in copies of its sign bit, and
-   writes the result to the destination register. The value of the second
-   source register modulo the register size in bits gives the number of bits by
-   which the first source register is right-shifted.  This instruction is used
-   by the alias ASR (register).
-   Syntax: ASRV <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(datasize) operand2 = X[m, datasize];
-     X[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);
-*)
-Definition armv8a_ASRV_instr : instr_desc_t := mk_shiftv_instr ASRV (@wsar).
 (* [C6.2.268 LSL (register)] ARM DDI 0487 M.a, p. 2389
    Logical shift left (register)  This instruction shifts a register value left
    by a variable number of bits, shifting in zeros, and writes the result to
@@ -1831,23 +1781,11 @@ Definition armv8a_ASRV_instr : instr_desc_t := mk_shiftv_instr ASRV (@wsar).
    UNPREDICTABLE behavior, and any operational information for this
    instruction.
    Syntax: LSL <Xd>, <Xn>, <Xm>  ==  LSLV <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     The description of LSLV gives the operational pseudocode for this instruction.
+   Operation (ASL, from the LSLV description):
+     constant bits(datasize) operand2 = X[m, datasize];
+     X[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);
 *)
 Definition armv8a_LSL_instr : instr_desc_t := mk_shift_instr LSL (@wshl).
-(* [C6.2.270 LSLV] ARM DDI 0487 M.a, p. 2393
-   Logical shift left variable  This instruction shifts a register value left
-   by a variable number of bits, shifting in zeros, and writes the result to
-   the destination register. The value of the second source register modulo the
-   register size in bits gives the number of bits by which the first source
-   register is left-shifted.  This instruction is used by the alias LSL
-   (register).
-   Syntax: LSLV <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(datasize) operand2 = X[m, datasize];
-     X[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);
-*)
-Definition armv8a_LSLV_instr : instr_desc_t := mk_shiftv_instr LSLV (@wshl).
 (* [C6.2.271 LSR (register)] ARM DDI 0487 M.a, p. 2395
    Logical shift right (register)  This instruction shifts a register value
    right by a variable number of bits, shifting in zeros, and writes the result
@@ -1859,23 +1797,11 @@ Definition armv8a_LSLV_instr : instr_desc_t := mk_shiftv_instr LSLV (@wshl).
    UNPREDICTABLE behavior, and any operational information for this
    instruction.
    Syntax: LSR <Xd>, <Xn>, <Xm>  ==  LSRV <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     The description of LSRV gives the operational pseudocode for this instruction.
+   Operation (ASL, from the LSRV description):
+     constant bits(datasize) operand2 = X[m, datasize];
+     X[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);
 *)
 Definition armv8a_LSR_instr : instr_desc_t := mk_shift_instr LSR (@wshr).
-(* [C6.2.273 LSRV] ARM DDI 0487 M.a, p. 2399
-   Logical shift right variable  This instruction shifts a register value right
-   by a variable number of bits, shifting in zeros, and writes the result to
-   the destination register. The value of the second source register modulo the
-   register size in bits gives the number of bits by which the first source
-   register is right-shifted.  This instruction is used by the alias LSR
-   (register).
-   Syntax: LSRV <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(datasize) operand2 = X[m, datasize];
-     X[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);
-*)
-Definition armv8a_LSRV_instr : instr_desc_t := mk_shiftv_instr LSRV (@wshr).
 (* [C6.2.347 ROR (register)] ARM DDI 0487 M.a, p. 2541
    Rotate right (register)  This instruction provides the value of the contents
    of a register rotated by a variable number of bits. The bits that are
@@ -1887,23 +1813,11 @@ Definition armv8a_LSRV_instr : instr_desc_t := mk_shiftv_instr LSRV (@wshr).
    RORV gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE
    behavior, and any operational information for this instruction.
    Syntax: ROR <Xd>, <Xn>, <Xm>  ==  RORV <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     The description of RORV gives the operational pseudocode for this instruction.
+   Operation (ASL, from the RORV description):
+     constant bits(datasize) operand2 = X[m, datasize];
+     X[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);
 *)
 Definition armv8a_ROR_instr : instr_desc_t := mk_shift_instr ROR (@wror).
-(* [C6.2.348 RORV] ARM DDI 0487 M.a, p. 2543
-   Rotate right variable  This instruction provides the value of the contents
-   of a register rotated by a variable number of bits. The bits that are
-   rotated off the right end are inserted into the vacated bit positions on the
-   left. The value of the second source register modulo the register size in
-   bits gives the number of bits by which the first source register is right-
-   shifted.  This instruction is used by the alias ROR (register).
-   Syntax: RORV <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(datasize) operand2 = X[m, datasize];
-     X[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);
-*)
-Definition armv8a_RORV_instr : instr_desc_t := mk_shiftv_instr RORV (@wror).
 
 (* -------------------------------------------------------------------- *)
 (* Bit field instructions. *)
@@ -2930,13 +2844,9 @@ Definition mn_desc (mn : armv8a_mnemonic) : instr_desc_t :=
   | EOR => armv8a_EOR_instr
   | MVN => armv8a_MVN_instr
   | ASR => armv8a_ASR_instr
-  | ASRV => armv8a_ASRV_instr
   | LSL => armv8a_LSL_instr
-  | LSLV => armv8a_LSLV_instr
   | LSR => armv8a_LSR_instr
-  | LSRV => armv8a_LSRV_instr
   | ROR => armv8a_ROR_instr
-  | RORV => armv8a_RORV_instr
   | BFC => armv8a_BFC_instr
   | BFI => armv8a_BFI_instr
   | BFXIL => armv8a_BFXIL_instr
