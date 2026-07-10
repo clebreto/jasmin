@@ -85,13 +85,9 @@ op MVN (x: W64.t) : W64.t = invw x.
 (* Shifts. The shift amount is taken modulo the register size. *)
 
 op ASR (x: W64.t) (sham: W8.t) : W64.t = x `|>>` W8.of_int (to_uint sham %% 64).
-op ASRV (x y: W64.t) : W64.t = x `|>>` W8.of_int (to_uint y %% 64).
 op LSL (x: W64.t) (sham: W8.t) : W64.t = x `<<` W8.of_int (to_uint sham %% 64).
-op LSLV (x y: W64.t) : W64.t = x `<<` W8.of_int (to_uint y %% 64).
 op LSR (x: W64.t) (sham: W8.t) : W64.t = x `>>` W8.of_int (to_uint sham %% 64).
-op LSRV (x y: W64.t) : W64.t = x `>>` W8.of_int (to_uint y %% 64).
 op ROR (x: W64.t) (sham: W8.t) : W64.t = x `|>>>` (to_uint sham %% 64).
-op RORV (x y: W64.t) : W64.t = x `|>>>` (to_uint y %% 64).
 
 (* -------------------------------------------------------------------- *)
 (* Bit field operations. *)
