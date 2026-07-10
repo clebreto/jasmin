@@ -1236,7 +1236,7 @@ Definition mk_shifted
     id_semi := semi';
     id_nargs := (id_nargs idt).+1;
     id_args_kinds :=
-      map (fun x => x ++ [:: [:: CAimm (CAimmC_armv8a_shift_amount ws) U8] ]) (id_args_kinds idt);
+      map (fun x => x ++ [:: [:: CAimm (Some (CAimmC_armv8a_shift_amount ws)) U8] ]) (id_args_kinds idt);
     id_eq_size := mk_shifted_eq_size (id_eq_size idt);
     id_check_dest := id_check_dest idt;
     id_str_jas := id_str_jas idt;
@@ -1298,30 +1298,30 @@ Let ak_rr := ak_reg_reg.
 Let ak_rrr := ak_reg_reg_reg.
 Let ak_rrrr := ak_reg_reg_reg_reg.
 
-Let ak_rr_or_imm (ick : option caimm_checker_s) :=
+Let ak_rr_or_imm (ick : option armv8a_caimm_cond) :=
   if ick is Some ic
   then
     if has_shift opts
     then ak_reg_reg
-    else ak_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAimm ic osz ] ] ]
+    else ak_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAimm (Some ic) osz ] ] ]
   else ak_reg_reg.
 
-Let ak_rrr_or_imm (ick : option caimm_checker_s) :=
+Let ak_rrr_or_imm (ick : option armv8a_caimm_cond) :=
   if ick is Some ic
   then
     if has_shift opts
     then ak_reg_reg_reg
-    else ak_reg_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAimm ic osz ] ] ]
+    else ak_reg_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAimm (Some ic) osz ] ] ]
   else ak_reg_reg_reg.
 
 Let ak_rr_imm_shift :=
-  [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAimm (CAimmC_armv8a_shift_amount osz) U8 ] ] ].
+  [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAimm (Some (CAimmC_armv8a_shift_amount osz)) U8 ] ] ].
 
 Let ak_r_imm16_shift :=
-  [:: [:: [:: CAreg ]; [:: CAimm_sz U16 ]; [:: CAimm CAimmC_armv8a_0_16_32_48 U8 ] ] ].
+  [:: [:: [:: CAreg ]; [:: CAimm_sz U16 ]; [:: CAimm (Some CAimmC_armv8a_0_16_32_48) U8 ] ] ].
 
 Let ak_rrr_imm_shift :=
-  [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAreg ]; [:: CAimm (CAimmC_armv8a_shift_amount osz) U8 ] ] ].
+  [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAreg ]; [:: CAimm (Some (CAimmC_armv8a_shift_amount osz)) U8 ] ] ].
 
 Let ak_rrr_cond :=
   [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAreg ]; [:: CAcond ] ] ].
@@ -1336,7 +1336,7 @@ Let ak_r_imm8_imm8 :=
   [:: [:: [:: CAreg ]; [:: CAimm_sz U8 ]; [:: CAimm_sz U8 ] ] ].
 
 Let ak_rr_imm_imm_extr :=
-  [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAimm (CAimmC_armv8a_shift_amount osz) U8 ]; [:: CAimm_sz U8 ] ] ].
+  [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAimm (Some (CAimmC_armv8a_shift_amount osz)) U8 ]; [:: CAimm_sz U8 ] ] ].
 
 (* -------------------------------------------------------------------- *)
 (* Arithmetic instructions. *)
@@ -1345,7 +1345,7 @@ Let ak_rr_imm_imm_extr :=
    an optionally shifted register or an immediate as its last operand. *)
 (* [ick] is the immediate-encoding checker for the instruction's immediate
    form ([None] for instructions with no immediate form). *)
-Definition mk_arith_instr mn (ick : option caimm_checker_s)
+Definition mk_arith_instr mn (ick : option armv8a_caimm_cond)
   (semi : word osz -> word osz -> ty_w osz)
   : instr_desc_t :=
   let tin := [:: lword osz; lword osz ] in
@@ -1377,7 +1377,7 @@ Definition mk_arith_instr mn (ick : option caimm_checker_s)
   else x.
 
 (* Same as [mk_arith_instr], with the NZCV flags as extra outputs. *)
-Definition mk_ariths_instr mn (ick : option caimm_checker_s)
+Definition mk_ariths_instr mn (ick : option armv8a_caimm_cond)
   (semi : word osz -> word osz -> ty_nzcv_w osz)
   : instr_desc_t :=
   let tin := [:: lword osz; lword osz ] in
@@ -1410,7 +1410,7 @@ Definition mk_ariths_instr mn (ick : option caimm_checker_s)
 
 Notation arith_imm := (Some CAimmC_armv8a_arith_imm) (only parsing).
 Notation bitmask_imm := (Some CAimmC_armv8a_bitmask_imm) (only parsing).
-Notation no_imm := (None : option caimm_checker_s) (only parsing).
+Notation no_imm := (None : option armv8a_caimm_cond) (only parsing).
 
 Definition armv8a_ADD_instr : instr_desc_t :=
   mk_arith_instr ADD arith_imm armv8a_ADD_semi.
@@ -2268,7 +2268,7 @@ Definition armv8a_MOV_instr : instr_desc_t :=
     id_semi := sem_lprod_ok tin semi;
     id_nargs := 2;
     id_args_kinds :=
-      ak_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAimm CAimmC_armv8a_mov_imm osz ] ] ];
+      ak_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAimm (Some CAimmC_armv8a_mov_imm) osz ] ] ];
     id_eq_size := refl_equal;
     id_check_dest := refl_equal;
     id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
@@ -2522,7 +2522,7 @@ Definition armv8a_REV32_instr : instr_desc_t :=
 (* -------------------------------------------------------------------- *)
 (* Comparisons. *)
 
-Definition mk_cmp_instr mn (ick : option caimm_checker_s)
+Definition mk_cmp_instr mn (ick : option armv8a_caimm_cond)
   (semi : word osz -> word osz -> ty_nzcv)
   : instr_desc_t :=
   let tin := [:: lword osz; lword osz ] in
