@@ -133,7 +133,7 @@ module Armv8aTarget : AsmTargetBuilder.AsmTarget with
   and type regx = Arch_utils.empty
   and type xreg = Arch_utils.empty
   and type rflag = Arm_common.rflag
-  and type cond = Armv8a_decl.condt
+  and type cond = Arm_common.condt
   and type asm_op = armv8a_asm_op
 = struct
 
@@ -141,7 +141,7 @@ module Armv8aTarget : AsmTargetBuilder.AsmTarget with
   type regx = Arch_utils.empty
   type xreg = Arch_utils.empty
   type rflag = Arm_common.rflag
-  type cond = Armv8a_decl.condt
+  type cond = Arm_common.condt
   type asm_op = armv8a_asm_op
 
   let headers = []
