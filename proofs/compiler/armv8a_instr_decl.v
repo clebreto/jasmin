@@ -2563,7 +2563,7 @@ Definition armv8a_TST_instr : instr_desc_t :=
 (* -------------------------------------------------------------------- *)
 (* Conditional selection.
    The condition is a first-class operand (the [CAcond] argument kind),
-   evaluated by [armv8a_eval_cond] on the NZCV flags and passed to the
+   evaluated by [arm_eval_cond] on the NZCV flags and passed to the
    semantics as a boolean. *)
 
 Definition mk_csel_instr mn (semi : word osz -> word osz -> bool -> ty_w osz)
