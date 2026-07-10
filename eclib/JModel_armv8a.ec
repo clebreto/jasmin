@@ -38,10 +38,7 @@ op ADCS (x y: W64.t) (c: bool) : bool * bool * bool * bool * W64.t =
 
 op SUB (x y: W64.t) : W64.t = x - y.
 op SUBS (x y: W64.t) : bool * bool * bool * bool * W64.t =
-  let ym = invw y in
-  with_nzcv (x + ym + W64.one)
-            (to_uint x + to_uint ym + 1)
-            (to_sint x + to_sint ym + 1).
+  ADCS x (invw y) true.
 
 op SBC (x y: W64.t) (c: bool) : W64.t = ADC x (invw y) c.
 op SBCS (x y: W64.t) (c: bool) : bool * bool * bool * bool * W64.t =
@@ -171,18 +168,15 @@ op CLS (x: W64.t) : W64.t =
 (* -------------------------------------------------------------------- *)
 (* Comparisons. *)
 
+(* CMP, CMN and TST are the flag-only aliases of SUBS, ADDS and ANDS. *)
 op CMP (x y: W64.t) : bool * bool * bool * bool =
-  let ym = invw y in
-  nzcv (x + ym + W64.one)
-       (to_uint x + to_uint ym + 1)
-       (to_sint x + to_sint ym + 1).
+  let (n, z, c, v, _) = SUBS x y in (n, z, c, v).
 
 op CMN (x y: W64.t) : bool * bool * bool * bool =
-  nzcv (x + y) (to_uint x + to_uint y) (to_sint x + to_sint y).
+  let (n, z, c, v, _) = ADDS x y in (n, z, c, v).
 
 op TST (x y: W64.t) : bool * bool * bool * bool =
-  let r = andw x y in
-  (W64.msb r, r = W64.zero, false, false).
+  let (n, z, c, v, _) = ANDS x y in (n, z, c, v).
 
 (* -------------------------------------------------------------------- *)
 (* Conditional selection. *)
