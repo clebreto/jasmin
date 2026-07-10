@@ -74,16 +74,6 @@ let pp_asm_arg ?(wform = false) (arg : (register, Arch_utils.empty, Arch_utils.e
 
 (* -------------------------------------------------------------------- *)
 
-(* Positions (in the assembly argument list) that must be printed as W
-   registers. *)
-let wform_positions (mn : armv8a_mnemonic) : int list =
-  match mn with
-  | LDRB | LDRH | STRB | STRH -> [ 0 ]
-  | UXTB | UXTH | UXTW -> [ 0; 1 ]
-  | SXTB | SXTH | SXTW -> [ 1 ]
-  | UMULL | SMULL | UMADDL | SMADDL -> [ 1; 2 ]
-  | _ -> []
-
 (* We assume the only condition in the argument list is the one we need to
    print. A64 has no conditional execution: a condition is always a proper
    operand (CSEL, CSET, ...), printed last. *)
@@ -225,15 +215,12 @@ module Armv8aTarget : AsmTargetBuilder.AsmTarget with
             pp_ADR args
         | _, _ ->
             let name = pp_mnemonic op in
-            let wpos = wform_positions mn in
+            (* Registers are printed in the W form when the instruction
+               declaration pairs them with a width of at most [U32]. *)
             let pargs =
               List.filter_map
-                (fun x -> x)
-                (List.mapi
-                   (fun i (sz, a) ->
-                     let w32 = match sz with Wsize.U32 -> true | _ -> false in
-                     pp_asm_arg ~wform:(w32 || List.mem i wpos) a)
-                   pp.pp_aop_args)
+                (fun (sz, a) -> pp_asm_arg ~wform:(Wsize.size_8_32 sz) a)
+                pp.pp_aop_args
             in
             let pargs =
               match mn with
