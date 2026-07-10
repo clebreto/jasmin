@@ -410,751 +410,6 @@ Definition nzcv_w_of_logop {ws : wsize} (w : word ws) :=
 
 
 (* -------------------------------------------------------------------- *)
-(* Instruction semantics.
-   Semantics are parametric in the operand size [ws] (U32 for the W form,
-   U64 for the X form) unless the instruction exists at a single size. *)
-
-(* [C6.2.6 ADD (shifted register)] ARM DDI 0487 M.a, p. 1798
-   Add optionally-shifted register  This instruction adds a register value and
-   an optionally-shifted register value, and writes the result to the
-   destination register.
-   Syntax: ADD <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);
-     bits(datasize) result;
-     (result, -) = AddWithCarry(operand1, operand2, '0');
-     X[d, datasize] = result;
-*)
-Definition armv8a_ADD_semi {ws : wsize} (wn wm : word ws) : ty_w ws :=
-  (wn + wm)%w.
-
-(* [C6.2.11 ADDS (shifted register)] ARM DDI 0487 M.a, p. 1807
-   Add optionally-shifted register, setting flags  This instruction adds a
-   register value and an optionally-shifted register value, and writes the
-   result to the destination register. It updates the condition flags based on
-   the result.  This instruction is used by the alias CMN (shifted register).
-   Syntax: ADDS <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);
-     bits(datasize) result;
-     bits(4) nzcv;
-     (result, nzcv) = AddWithCarry(operand1, operand2, '0');
-     X[d, datasize] = result;
-     PSTATE.<N,Z,C,V> = nzcv;
-*)
-Definition armv8a_ADDS_semi {ws : wsize} (wn wm : word ws) : ty_nzcv_w ws :=
-  nzcv_w_of_aluop
-    (wn + wm)%w
-    (wunsigned wn + wunsigned wm)%Z
-    (wsigned wn + wsigned wm)%Z.
-
-(* [C6.2.2 ADC] ARM DDI 0487 M.a, p. 1789
-   Add with carry  This instruction adds two register values and the Carry flag
-   value, and writes the result to the destination register.
-   Syntax: ADC <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = X[m, datasize];
-     bits(datasize) result;
-     (result, -) = AddWithCarry(operand1, operand2, PSTATE.C);
-     X[d, datasize] = result;
-*)
-Definition armv8a_ADC_semi {ws : wsize} (wn wm : word ws) (cf : bool) : ty_w ws :=
-  let c := Z.b2z cf in
-  (wn + wm + wrepr ws c)%w.
-
-(* [C6.2.3 ADCS] ARM DDI 0487 M.a, p. 1791
-   Add with carry, setting flags  This instruction adds two register values and
-   the Carry flag value, and writes the result to the destination register. It
-   updates the condition flags based on the result.
-   Syntax: ADCS <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = X[m, datasize];
-     bits(datasize) result;
-     bits(4) nzcv;
-     (result, nzcv) = AddWithCarry(operand1, operand2, PSTATE.C);
-     X[d, datasize] = result;
-     PSTATE.<N,Z,C,V> = nzcv;
-*)
-Definition armv8a_ADCS_semi {ws : wsize} (wn wm : word ws) (cf : bool) : ty_nzcv_w ws :=
-  let c := Z.b2z cf in
-  nzcv_w_of_aluop
-    (wn + wm + wrepr ws c)%w
-    (wunsigned wn + wunsigned wm + c)%Z
-    (wsigned wn + wsigned wm + c)%Z.
-
-(* [C6.2.457 SUB (shifted register)] ARM DDI 0487 M.a, p. 2785
-   Subtract optionally-shifted register  This instruction subtracts an
-   optionally-shifted register value from a register value, and writes the
-   result to the destination register.  This instruction is used by the alias
-   NEG (shifted register).
-   Syntax: SUB <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = NOT(ShiftReg(m, shift_type, shift_amount, datasize));
-     bits(datasize) result;
-     (result, -) = AddWithCarry(operand1, operand2, '1');
-     X[d, datasize] = result;
-*)
-Definition armv8a_SUB_semi {ws : wsize} (wn wm : word ws) : ty_w ws :=
-  (wn - wm)%w.
-
-(* [C6.2.464 SUBS (shifted register)] ARM DDI 0487 M.a, p. 2797
-   Subtract optionally-shifted register, setting flags  This instruction
-   subtracts an optionally-shifted register value from a register value, and
-   writes the result to the destination register. It updates the condition
-   flags based on the result.  This instruction is used by the aliases CMP
-   (shifted register) and NEGS.
-   Syntax: SUBS <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = NOT(ShiftReg(m, shift_type, shift_amount, datasize));
-     bits(datasize) result;
-     bits(4) nzcv;
-     (result, nzcv) = AddWithCarry(operand1, operand2, '1');
-     X[d, datasize] = result;
-     PSTATE.<N,Z,C,V> = nzcv;
-*)
-Definition armv8a_SUBS_semi {ws : wsize} (wn wm : word ws) : ty_nzcv_w ws :=
-  let wmnot := wnot wm in
-  nzcv_w_of_aluop
-    (wn + wmnot + 1)%w
-    (wunsigned wn + wunsigned wmnot + 1)%Z
-    (wsigned wn + wsigned wmnot + 1)%Z.
-
-(* [C6.2.351 SBC] ARM DDI 0487 M.a, p. 2548
-   Subtract with carry  This instruction subtracts a register value and the
-   value of NOT (Carry flag) from a register value, and writes the result to
-   the destination register.  This instruction is used by the alias NGC.
-   Syntax: SBC <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = NOT(X[m, datasize]);
-     bits(datasize) result;
-     (result, -) = AddWithCarry(operand1, operand2, PSTATE.C);
-     X[d, datasize] = result;
-*)
-Definition armv8a_SBC_semi {ws : wsize} (wn wm : word ws) (cf : bool) : ty_w ws :=
-  armv8a_ADC_semi wn (wnot wm) cf.
-
-(* [C6.2.352 SBCS] ARM DDI 0487 M.a, p. 2550
-   Subtract with carry, setting flags  This instruction subtracts a register
-   value and the value of NOT (Carry flag) from a register value, and writes
-   the result to the destination register. It updates the condition flags based
-   on the result.  This instruction is used by the alias NGCS.
-   Syntax: SBCS <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = NOT(X[m, datasize]);
-     bits(datasize) result;
-     bits(4) nzcv;
-     (result, nzcv) = AddWithCarry(operand1, operand2, PSTATE.C);
-     X[d, datasize] = result;
-     PSTATE.<N,Z,C,V> = nzcv;
-*)
-Definition armv8a_SBCS_semi {ws : wsize} (wn wm : word ws) (cf : bool) : ty_nzcv_w ws :=
-  armv8a_ADCS_semi wn (wnot wm) cf.
-
-(* [C6.2.294 NEG (shifted register)] ARM DDI 0487 M.a, p. 2440
-   Negate (shifted register)  This instruction negates an optionally-shifted
-   register value, and writes the result to the destination register.  This is
-   an alias of SUB (shifted register). This means:  • The encodings in this
-   description are named to match the encodings of SUB (shifted register). •
-   The description of SUB (shifted register) gives the operational pseudocode,
-   any CONSTRAINED UNPREDICTABLE behavior, and any operational information for
-   this instruction.
-   Note: NEG is an alias of SUB (shifted register) with Rn = ZR; the SUB entry carries the operational pseudocode.
-   Syntax: NEG <Xd>, <Xm>{, <shift> #<amount>}  ==  SUB <Xd>, XZR, <Xm>{, <shift> #<amount>}
-   Operation (ASL):
-     The description of SUB (shifted register) gives the operational pseudocode for this instruction.
-   Base instruction [C6.2.457 SUB (shifted register)] p. 2785, Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = NOT(ShiftReg(m, shift_type, shift_amount, datasize));
-     bits(datasize) result;
-     (result, -) = AddWithCarry(operand1, operand2, '1');
-     X[d, datasize] = result;
-*)
-Definition armv8a_NEG_semi {ws : wsize} (wm : word ws) : ty_w ws :=
-  (wnot wm + 1)%w.
-
-(* [C6.2.292 MUL] ARM DDI 0487 M.a, p. 2436
-   Multiply  This instruction multiplies two register values and writes the
-   result to the destination register.  This is an alias of MADD. This means:
-   • The encodings in this description are named to match the encodings of
-   MADD. • The description of MADD gives the operational pseudocode, any
-   CONSTRAINED UNPREDICTABLE behavior, and any operational information for this
-   instruction.
-   Note: MUL is an alias of MADD with Ra = ZR (see the MADD entry for the operational pseudocode).
-   Syntax: MUL <Xd>, <Xn>, <Xm>  ==  MADD <Xd>, <Xn>, <Xm>, XZR
-   Operation (ASL):
-     The description of MADD gives the operational pseudocode for this instruction.
-*)
-Definition armv8a_MUL_semi {ws : wsize} (wn wm : word ws) : ty_w ws :=
-  (wn * wm)%w.
-
-(* [C6.2.274 MADD] ARM DDI 0487 M.a, p. 2401
-   Multiply-add  This instruction multiplies two register values, adds a third
-   register value, and writes the result to the destination register.  This
-   instruction is used by the alias MUL.
-   Syntax: MADD <Xd>, <Xn>, <Xm>, <Xa>
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = X[m, datasize];
-     constant bits(datasize) operand3 = X[a, datasize];
-     constant integer result = UInt(operand3) + (UInt(operand1) * UInt(operand2));
-     X[d, datasize] = result<datasize-1:0>;
-*)
-Definition armv8a_MADD_semi {ws : wsize} (wn wm wa : word ws) : ty_w ws :=
-  (wa + wn * wm)%w.
-
-(* [C6.2.290 MSUB] ARM DDI 0487 M.a, p. 2432
-   Multiply-subtract  This instruction multiplies two register values,
-   subtracts the product from a third register value, and writes the result to
-   the destination register.  This instruction is used by the alias MNEG.
-   Syntax: MSUB <Xd>, <Xn>, <Xm>, <Xa>
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = X[m, datasize];
-     constant bits(datasize) operand3 = X[a, datasize];
-     constant integer result = UInt(operand3) - (UInt(operand1) * UInt(operand2));
-     X[d, datasize] = result<datasize-1:0>;
-*)
-Definition armv8a_MSUB_semi {ws : wsize} (wn wm wa : word ws) : ty_w ws :=
-  (wa - wn * wm)%w.
-
-(* [C6.2.356 SDIV] ARM DDI 0487 M.a, p. 2558
-   Signed divide  This instruction divides the first signed source register
-   value by the second signed source register value, and writes the result to
-   the destination register. Dividing by zero writes the value zero to the
-   destination register. The condition flags are not affected.
-   Syntax: SDIV <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = X[m, datasize];
-     constant integer dividend = SInt(operand1);
-     constant integer divisor = SInt(operand2);
-     integer result;
-     if divisor == 0 then
-         result = 0;
-     elsif (dividend < 0) == (divisor < 0) then
-         result = Abs(dividend) DIV Abs(divisor); // same signs - positive result
-     else
-         result = -(Abs(dividend) DIV Abs(divisor)); // different signs - negative result
-     X[d, datasize] = result<datasize-1:0>;
-*)
-Definition armv8a_SDIV_semi {ws : wsize} (wn wm : word ws) : ty_w ws :=
-  wdivi wn wm.
-
-(* [C6.2.489 UDIV] ARM DDI 0487 M.a, p. 2846
-   Unsigned divide  This instruction divides the first unsigned source register
-   value by the second unsigned source register value, and writes the result to
-   the destination register. Dividing by zero writes the value zero to the
-   destination register. The condition flags are not affected.
-   Syntax: UDIV <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = X[m, datasize];
-     constant integer dividend = UInt(operand1);
-     constant integer divisor = UInt(operand2);
-     integer result;
-     if divisor == 0 then
-         result = 0;
-     else
-         result = dividend DIV divisor;
-     X[d, datasize] = result<datasize-1:0>;
-*)
-Definition armv8a_UDIV_semi {ws : wsize} (wn wm : word ws) : ty_w ws :=
-  wdiv wn wm.
-
-(* [C6.2.498 UMULL] ARM DDI 0487 M.a, p. 2862
-   Unsigned multiply long  This instruction multiplies two 32-bit register
-   values, and writes the result to the 64-bit destination register.  This is
-   an alias of UMADDL. This means:  • The encodings in this description are
-   named to match the encodings of UMADDL. • The description of UMADDL gives
-   the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any
-   operational information for this instruction.
-   Note: UMULL is an alias of UMADDL with Ra = XZR.
-   Syntax: UMULL <Xd>, <Wn>, <Wm>  ==  UMADDL <Xd>, <Wn>, <Wm>, XZR
-   Operation (ASL):
-     The description of UMADDL gives the operational pseudocode for this instruction.
-*)
-Definition armv8a_UMULL_semi (wn wm : word U32) : ty_r :=
-  (zero_extend U64 wn * zero_extend U64 wm)%w.
-
-(* [C6.2.379 SMULL] ARM DDI 0487 M.a, p. 2616
-   Signed multiply long  This instruction multiplies two 32-bit register
-   values, and writes the result to the 64-bit destination register.  This is
-   an alias of SMADDL. This means:  • The encodings in this description are
-   named to match the encodings of SMADDL. • The description of SMADDL gives
-   the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any
-   operational information for this instruction.
-   Note: SMULL is an alias of SMADDL with Ra = XZR.
-   Syntax: SMULL <Xd>, <Wn>, <Wm>  ==  SMADDL <Xd>, <Wn>, <Wm>, XZR
-   Operation (ASL):
-     The description of SMADDL gives the operational pseudocode for this instruction.
-*)
-Definition armv8a_SMULL_semi (wn wm : word U32) : ty_r :=
-  (sign_extend U64 wn * sign_extend U64 wm)%w.
-
-(* [C6.2.490 UMADDL] ARM DDI 0487 M.a, p. 2848
-   Unsigned multiply-add long  This instruction multiplies two 32-bit register
-   values, adds a 64-bit register value, and writes the result to the 64-bit
-   destination register.  This instruction is used by the alias UMULL.
-   Syntax: UMADDL <Xd>, <Wn>, <Wm>, <Xa>
-   Operation (ASL):
-     constant bits(32) operand1 = X[n, 32];
-     constant bits(32) operand2 = X[m, 32];
-     constant bits(64) operand3 = X[a, 64];
-     constant integer result = UInt(operand3) + (UInt(operand1) * UInt(operand2));
-     X[d, 64] = result<63:0>;
-*)
-Definition armv8a_UMADDL_semi (wn wm : word U32) (wa : word U64) : ty_r :=
-  (wa + zero_extend U64 wn * zero_extend U64 wm)%w.
-
-(* [C6.2.368 SMADDL] ARM DDI 0487 M.a, p. 2599
-   Signed multiply-add long  This instruction multiplies two 32-bit register
-   values, adds a 64-bit register value, and writes the result to the 64-bit
-   destination register.  This instruction is used by the alias SMULL.
-   Syntax: SMADDL <Xd>, <Wn>, <Wm>, <Xa>
-   Operation (ASL):
-     constant bits(32) operand1 = X[n, 32];
-     constant bits(32) operand2 = X[m, 32];
-     constant bits(64) operand3 = X[a, 64];
-     constant integer result = SInt(operand3) + (SInt(operand1) * SInt(operand2));
-     X[d, 64] = result<63:0>;
-*)
-Definition armv8a_SMADDL_semi (wn wm : word U32) (wa : word U64) : ty_r :=
-  (wa + sign_extend U64 wn * sign_extend U64 wm)%w.
-
-(* [C6.2.497 UMULH] ARM DDI 0487 M.a, p. 2861
-   Unsigned multiply high  This instruction multiplies two 64-bit register
-   values, and writes bits[127:64] of the 128-bit result to the 64-bit
-   destination register.
-   Syntax: UMULH <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(64) operand1 = X[n, 64];
-     constant bits(64) operand2 = X[m, 64];
-     constant integer result = UInt(operand1) * UInt(operand2);
-     X[d, 64] = result<127:64>;
-*)
-Definition armv8a_UMULH_semi (wn wm : word U64) : ty_r :=
-  (wumul wn wm).1.
-
-(* [C6.2.378 SMULH] ARM DDI 0487 M.a, p. 2615
-   Signed multiply high  This instruction multiplies two 64-bit register
-   values, and writes bits[127:64] of the 128-bit result to the 64-bit
-   destination register.
-   Syntax: SMULH <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(64) operand1 = X[n, 64];
-     constant bits(64) operand2 = X[m, 64];
-     constant integer result = SInt(operand1) * SInt(operand2);
-     X[d, 64] = result<127:64>;
-*)
-Definition armv8a_SMULH_semi (wn wm : word U64) : ty_r :=
-  wmulhs wn wm.
-
-Definition armv8a_bitwise_semi
-  {ws : wsize}
-  (op0 op1 : word ws -> word ws)
-  (op : word ws -> word ws -> word ws)
-  (wn wm : word ws) :
-  ty_w ws :=
-  op (op0 wn) (op1 wm).
-
-(* [C6.2.17 ANDS (shifted register)] ARM DDI 0487 M.a, p. 1817
-   Bitwise AND (shifted register), setting flags  This instruction performs a
-   bitwise AND of a register value and an optionally-shifted register value,
-   and writes the result to the destination register. It updates the condition
-   flags based on the result.  This instruction is used by the alias TST
-   (shifted register).
-   Syntax: ANDS <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);
-     constant bits(datasize) result = operand1 AND operand2;
-     X[d, datasize] = result;
-     PSTATE.<N,Z,C,V> = result<datasize-1>:IsZeroBit(result):'00';
-*)
-Definition armv8a_ANDS_semi {ws : wsize} (wn wm : word ws) : ty_nzcv_w ws :=
-  nzcv_w_of_logop (wand wn wm).
-
-(* [C6.2.42 BICS (shifted register)] ARM DDI 0487 M.a, p. 1858
-   Bitwise bit clear (shifted register), setting flags  This instruction
-   performs a bitwise AND of a register value and the complement of an
-   optionally-shifted register value, and writes the result to the destination
-   register. It updates the condition flags based on the result.
-   Syntax: BICS <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);
-     constant bits(datasize) result = operand1 AND NOT(operand2);
-     X[d, datasize] = result;
-     PSTATE.<N,Z,C,V> = result<datasize-1>:IsZeroBit(result):'00';
-*)
-Definition armv8a_BICS_semi {ws : wsize} (wn wm : word ws) : ty_nzcv_w ws :=
-  nzcv_w_of_logop (wand wn (wnot wm)).
-
-(* [C6.2.293 MVN] ARM DDI 0487 M.a, p. 2438
-   Bitwise NOT  This instruction writes the bitwise inverse of a register value
-   to the destination register.  This is an alias of ORN (shifted register).
-   This means:  • The encodings in this description are named to match the
-   encodings of ORN (shifted register). • The description of ORN (shifted
-   register) gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE
-   behavior, and any operational information for this instruction.
-   Syntax: MVN <Xd>, <Xm>{, <shift> #<amount>}  ==  ORN <Xd>, XZR, <Xm>{, <shift> #<amount>}
-   Operation (ASL):
-     The description of ORN (shifted register) gives the operational pseudocode for this instruction.
-*)
-Definition armv8a_MVN_semi {ws : wsize} (wm : word ws) : ty_w ws :=
-  wnot wm.
-
-(* Shift semantics: the shift amount is the value of the last operand
-   modulo the operand size in bits. *)
-Definition armv8a_shift_semi
-  {ws : wsize} (op : forall sz, word sz -> Z -> word sz)
-  (wn : word ws) (wsham : word U8) : ty_w ws :=
-  let sham := (wunsigned wsham mod wsize_bits ws)%Z in
-  op ws wn sham.
-
-(* [C6.2.281 MOV (register)] ARM DDI 0487 M.a, p. 2413
-   Move register value  This instruction copies the value in a source register
-   to the destination register.  This is an alias of ORR (shifted register).
-   This means:  • The encodings in this description are named to match the
-   encodings of ORR (shifted register). • The description of ORR (shifted
-   register) gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE
-   behavior, and any operational information for this instruction.
-   Syntax: MOV <Xd>, <Xm>  ==  ORR <Xd>, XZR, <Xm>
-   Operation (ASL):
-     The description of ORR (shifted register) gives the operational pseudocode for this instruction.
-*)
-Definition armv8a_MOV_semi {ws : wsize} (wn : word ws) : ty_w ws :=
-  wn.
-
-(* [C6.2.284 MOVZ] ARM DDI 0487 M.a, p. 2418
-   Move wide with zero  This instruction moves an optionally-shifted 16-bit
-   immediate value to a register.  This instruction is used by the alias MOV
-   (wide immediate).
-   Syntax: MOVZ <Xd>, #<imm>{, LSL #<shift>}
-   Operation (ASL):
-     bits(datasize) result = Zeros(datasize);
-     result<pos+15:pos> = imm;
-     X[d, datasize] = result;
-*)
-Definition armv8a_MOVZ_semi {ws : wsize} (imm : word U16) (wsh : word U8) : ty_w ws :=
-  wshl (zero_extend ws imm) (wunsigned wsh).
-
-(* [C6.2.283 MOVN] ARM DDI 0487 M.a, p. 2416
-   Move wide with NOT  This instruction moves the inverse of an optionally-
-   shifted 16-bit immediate value to a register.  This instruction is used by
-   the alias MOV (inverted wide immediate).
-   Syntax: MOVN <Xd>, #<imm>{, LSL #<shift>}
-   Operation (ASL):
-     bits(datasize) result = Zeros(datasize);
-     result<pos+15:pos> = imm;
-     X[d, datasize] = NOT(result);
-*)
-Definition armv8a_MOVN_semi {ws : wsize} (imm : word U16) (wsh : word U8) : ty_w ws :=
-  wnot (wshl (zero_extend ws imm) (wunsigned wsh)).
-
-(* [C6.2.282 MOVK] ARM DDI 0487 M.a, p. 2415
-   Move wide with keep  This instruction moves an optionally-shifted 16-bit
-   immediate value into a register, keeping other bits unchanged.
-   Syntax: MOVK <Xd>, #<imm>{, LSL #<shift>}
-   Operation (ASL):
-     bits(datasize) result = X[d, datasize];
-     result<pos+15:pos> = imm;
-     X[d, datasize] = result;
-*)
-Definition armv8a_MOVK_semi {ws : wsize} (old : word ws) (imm : word U16) (wsh : word U8) : ty_w ws :=
-  let sh := wunsigned wsh in
-  let mask := wshl (zero_extend ws (wrepr U16 (-1))) sh in
-  wor (wshl (zero_extend ws imm) sh) (wand old (wnot mask)).
-
-(* [C6.2.12 ADR] ARM DDI 0487 M.a, p. 1809
-   Form PC-relative address  This instruction adds an immediate value to the PC
-   value to form a PC-relative address, and writes the result to the
-   destination register.
-   Syntax: ADR <Xd>, <label>
-   Operation (ASL):
-     X[d, 64] = PC64 + imm;
-*)
-Definition armv8a_ADR_semi (wn : word U64) : ty_r :=
-  wn.
-
-Definition armv8a_extend_semi
-  {ws : wsize} (sign : bool) (ws' : wsize) (wn : word ws) : word ws' :=
-  let f := if sign then sign_extend else zero_extend in
-  (f ws' ws wn).
-
-(* [C6.2.320 RBIT] ARM DDI 0487 M.a, p. 2484
-   Reverse bits  This instruction reverses the bit order in a register.
-   Syntax: RBIT <Xd>, <Xn>
-   Operation (ASL):
-     constant bits(datasize) operand = X[n, datasize];
-     bits(datasize) result;
-     for i = 0 to datasize-1
-         result<(datasize-1)-i> = operand<i>;
-     X[d, datasize] = result;
-*)
-Definition armv8a_RBIT_semi {ws : wsize} (w : word ws) : ty_w ws :=
-  winit ws (fun i => wbit_n w (Z.to_nat (wsize_bits ws) - 1 - i)).
-
-(* [C6.2.341 REV] ARM DDI 0487 M.a, p. 2532
-   Reverse bytes  This instruction reverses the byte order in a register.  This
-   instruction is used by the pseudo-instruction REV64.
-   Syntax: REV <Xd>, <Xn>
-   Operation (ASL):
-     constant bits(datasize) operand = X[n, datasize];
-     bits(datasize) result;
-     constant integer containers = datasize DIV container_size;
-     for c = 0 to containers-1
-         constant bits(container_size) container = Elem[operand, c, container_size];
-         Elem[result, c, container_size] = Reverse(container, 8);
-     X[d, datasize] = result;
-*)
-Definition armv8a_REV_semi {ws : wsize} (w : word ws) : ty_w ws :=
-  wbswap w.
-
-(* [C6.2.342 REV16] ARM DDI 0487 M.a, p. 2534
-   Reverse bytes in 16-bit halfwords  This instruction reverses the byte order
-   in each 16-bit halfword of a register.
-   Syntax: REV16 <Xd>, <Xn>
-   Operation (ASL):
-     constant bits(datasize) operand = X[n, datasize];
-     bits(datasize) result;
-     constant integer containers = datasize DIV container_size;
-     for c = 0 to containers-1
-         constant bits(container_size) container = Elem[operand, c, container_size];
-         Elem[result, c, container_size] = Reverse(container, 8);
-     X[d, datasize] = result;
-*)
-Definition armv8a_REV16_semi {ws : wsize} (w : word ws) : ty_w ws :=
-  lift1_vec U16 (@wbswap U16) ws w.
-
-(* [C6.2.343 REV32] ARM DDI 0487 M.a, p. 2536
-   Reverse bytes in 32-bit words  This instruction reverses the byte order in
-   each 32-bit word of a register.
-   Syntax: REV32 <Xd>, <Xn>
-   Operation (ASL):
-     constant bits(datasize) operand = X[n, datasize];
-     bits(datasize) result;
-     constant integer containers = datasize DIV container_size;
-     for c = 0 to containers-1
-         constant bits(container_size) container = Elem[operand, c, container_size];
-         Elem[result, c, container_size] = Reverse(container, 8);
-     X[d, datasize] = result;
-*)
-Definition armv8a_REV32_semi (w : word U64) : ty_r :=
-  lift1_vec U32 (@wbswap U32) U64 w.
-
-(* [C6.2.91 CLZ] ARM DDI 0487 M.a, p. 1940
-   Count leading zeros  This instruction counts the number of consecutive
-   binary zero bits, starting from the most significant bit in the source
-   register, and places the count in the destination register.
-   Syntax: CLZ <Xd>, <Xn>
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant integer result = CountLeadingZeroBits(operand1);
-     X[d, datasize] = result<datasize-1:0>;
-*)
-Definition armv8a_CLZ_semi {ws : wsize} (w : word ws) : ty_w ws :=
-  leading_zero w.
-
-(* [C6.2.90 CLS] ARM DDI 0487 M.a, p. 1939
-   Count leading sign bits  This instruction counts the number of leading bits
-   of the source register that have the same value as the most significant bit
-   of the register, and writes the result to the destination register. This
-   count does not include the most significant bit of the source register.
-   Syntax: CLS <Xd>, <Xn>
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant integer result = CountLeadingSignBits(operand1);
-     X[d, datasize] = result<datasize-1:0>;
-*)
-(* CountLeadingSignBits(x) = CountLeadingZeroBits(x<msb:1> EOR x<msb-1:0>):
-   the (N-1)-bit word [x<msb:1> EOR x<msb-1:0>] is computed as the N-bit
-   word [(x >> 1) EOR x] with its top bit cleared, whose leading-zero
-   count is one more than that of the (N-1)-bit word. *)
-Definition armv8a_CLS_semi {ws : wsize} (w : word ws) : ty_w ws :=
-  let t := wand (wxor (wshr w 1) w) (wrepr ws (2 ^ (wsize_bits ws - 1) - 1)) in
-  (leading_zero t - 1)%w.
-
-(* [C6.2.97 CMP (shifted register)] ARM DDI 0487 M.a, p. 1953
-   Compare (shifted register)  This instruction subtracts an optionally-shifted
-   register value from a register value. It updates the condition flags based
-   on the result, and discards the result.  This is an alias of SUBS (shifted
-   register). This means:  • The encodings in this description are named to
-   match the encodings of SUBS (shifted register). • The description of SUBS
-   (shifted register) gives the operational pseudocode, any CONSTRAINED
-   UNPREDICTABLE behavior, and any operational information for this
-   instruction.
-   Syntax: CMP <Wn>, <Wm>{, <shift> #<amount>}  ==  CMP <Xn>, <Xm>{, <shift> #<amount>}
-   Operation (ASL):
-     The description of SUBS (shifted register) gives the operational pseudocode for this instruction.
-*)
-Definition armv8a_CMP_semi {ws : wsize} (wn wm : word ws) : ty_nzcv :=
-  let wmnot := wnot wm in
-  nzcv_of_aluop
-    (wn + wmnot + 1)%w
-    (wunsigned wn + wunsigned wmnot + 1)%Z
-    (wsigned wn + wsigned wmnot + 1)%Z.
-
-(* [C6.2.94 CMN (shifted register)] ARM DDI 0487 M.a, p. 1946
-   Compare negative (shifted register)  This instruction adds a register value
-   and an optionally-shifted register value. It updates the condition flags
-   based on the result, and discards the result.  This is an alias of ADDS
-   (shifted register). This means:  • The encodings in this description are
-   named to match the encodings of ADDS (shifted register). • The description
-   of ADDS (shifted register) gives the operational pseudocode, any CONSTRAINED
-   UNPREDICTABLE behavior, and any operational information for this
-   instruction.
-   Syntax: CMN <Wn>, <Wm>{, <shift> #<amount>}  ==  CMN <Xn>, <Xm>{, <shift> #<amount>}
-   Operation (ASL):
-     The description of ADDS (shifted register) gives the operational pseudocode for this instruction.
-*)
-Definition armv8a_CMN_semi {ws : wsize} (wn wm : word ws) : ty_nzcv :=
-  nzcv_of_aluop
-    (wn + wm)%w
-    (wunsigned wn + wunsigned wm)%Z
-    (wsigned wn + wsigned wm)%Z.
-
-(* [C6.2.484 TST (shifted register)] ARM DDI 0487 M.a, p. 2837
-   Test (shifted register)  This instruction performs a bitwise AND operation
-   on a register value and an optionally-shifted register value. It updates the
-   condition flags based on the result, and discards the result.  This is an
-   alias of ANDS (shifted register). This means:  • The encodings in this
-   description are named to match the encodings of ANDS (shifted register). •
-   The description of ANDS (shifted register) gives the operational pseudocode,
-   any CONSTRAINED UNPREDICTABLE behavior, and any operational information for
-   this instruction.
-   Syntax: TST <Wn>, <Wm>{, <shift> #<amount>}  ==  TST <Xn>, <Xm>{, <shift> #<amount>}
-   Operation (ASL):
-     The description of ANDS (shifted register) gives the operational pseudocode for this instruction.
-*)
-Definition armv8a_TST_semi {ws : wsize} (wn wm : word ws) : ty_nzcv :=
-  nzcv_of_logop (wand wn wm).
-
-(* [C6.2.138 CSEL] ARM DDI 0487 M.a, p. 2138
-   Conditional select  This instruction writes the value of the first source
-   register to the destination register if the condition is TRUE. If the
-   condition is FALSE, it writes the value of the second source register to the
-   destination register.
-   Syntax: CSEL <Xd>, <Xn>, <Xm>, <cond>
-   Operation (ASL):
-     bits(datasize) result;
-     if ConditionHolds(condition) then
-         result = X[n, datasize];
-     else
-         result = X[m, datasize];
-     X[d, datasize] = result;
-*)
-Definition armv8a_CSEL_semi {ws : wsize} (wn wm : word ws) (b : bool) : ty_w ws :=
-  if b then wn else wm.
-
-(* [C6.2.141 CSINC] ARM DDI 0487 M.a, p. 2144
-   Conditional select increment  This instruction returns, in the destination
-   register, the value of the first source register if the condition is TRUE,
-   and otherwise returns the value of the second source register incremented by
-   1.  This instruction is used by the aliases CINC and CSET.
-   Syntax: CSINC <Xd>, <Xn>, <Xm>, <cond>
-   Operation (ASL):
-     bits(datasize) result;
-     if ConditionHolds(condition) then
-         result = X[n, datasize];
-     else
-         result = X[m, datasize] + 1;
-     X[d, datasize] = result;
-*)
-Definition armv8a_CSINC_semi {ws : wsize} (wn wm : word ws) (b : bool) : ty_w ws :=
-  if b then wn else (wm + 1)%w.
-
-(* [C6.2.142 CSINV] ARM DDI 0487 M.a, p. 2146
-   Conditional select invert  This instruction returns, in the destination
-   register, the value of the first source register if the condition is TRUE,
-   and otherwise returns the bitwise inversion value of the second source
-   register.  This instruction is used by the aliases CINV and CSETM.
-   Syntax: CSINV <Xd>, <Xn>, <Xm>, <cond>
-   Operation (ASL):
-     bits(datasize) result;
-     if ConditionHolds(condition) then
-         result = X[n, datasize];
-     else
-         result = NOT(X[m, datasize]);
-     X[d, datasize] = result;
-*)
-Definition armv8a_CSINV_semi {ws : wsize} (wn wm : word ws) (b : bool) : ty_w ws :=
-  if b then wn else wnot wm.
-
-(* [C6.2.143 CSNEG] ARM DDI 0487 M.a, p. 2148
-   Conditional select negation  This instruction returns, in the destination
-   register, the value of the first source register if the condition is TRUE,
-   and otherwise returns the negated value of the second source register.  This
-   instruction is used by the alias CNEG.
-   Syntax: CSNEG <Xd>, <Xn>, <Xm>, <cond>
-   Operation (ASL):
-     bits(datasize) result;
-     if ConditionHolds(condition) then
-         result = X[n, datasize];
-     else
-         result = NOT(X[m, datasize]) + 1;
-     X[d, datasize] = result;
-*)
-Definition armv8a_CSNEG_semi {ws : wsize} (wn wm : word ws) (b : bool) : ty_w ws :=
-  if b then wn else (wnot wm + 1)%w.
-
-(* [C6.2.139 CSET] ARM DDI 0487 M.a, p. 2140
-   Conditional set  This instruction sets the destination register to 1 if the
-   condition is TRUE, and otherwise sets it to 0.  This is an alias of CSINC.
-   This means:  • The encodings in this description are named to match the
-   encodings of CSINC. • The description of CSINC gives the operational
-   pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational
-   information for this instruction.
-   Syntax: CSET <Xd>, <invcond>  ==  CSINC <Xd>, XZR, XZR, <cond>
-   Operation (ASL):
-     The description of CSINC gives the operational pseudocode for this instruction.
-*)
-Definition armv8a_CSET_semi {ws : wsize} (b : bool) : ty_w ws :=
-  if b then 1%w else 0%w.
-
-(* [C6.2.140 CSETM] ARM DDI 0487 M.a, p. 2142
-   Conditional set mask  This instruction sets all bits of the destination
-   register to 1 if the condition is TRUE, and otherwise sets all bits to 0.
-   This is an alias of CSINV. This means:  • The encodings in this description
-   are named to match the encodings of CSINV. • The description of CSINV gives
-   the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any
-   operational information for this instruction.
-   Syntax: CSETM <Xd>, <invcond>  ==  CSINV <Xd>, XZR, XZR, <cond>
-   Operation (ASL):
-     The description of CSINV gives the operational pseudocode for this instruction.
-*)
-Definition armv8a_CSETM_semi {ws : wsize} (b : bool) : ty_w ws :=
-  if b then wrepr ws (-1) else 0%w.
-
-(* [C6.2.160 EXTR] ARM DDI 0487 M.a, p. 2174
-   Extract register  This instruction extracts a register from a pair of
-   registers.  This instruction is used by the alias ROR (immediate).
-   Syntax: EXTR <Xd>, <Xn>, <Xm>, #<lsb>
-   Operation (ASL):
-     bits(datasize) result;
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = X[m, datasize];
-     constant bits(2*datasize) concat = operand1:operand2;
-     result = concat<(lsb+datasize)-1:lsb>;
-     X[d, datasize] = result;
-*)
-Definition armv8a_EXTR_semi {ws : wsize} (wn wm : word ws) (wlsb : word U8) : ty_w ws :=
-  let bits := wsize_bits ws in
-  let l := (wunsigned wlsb mod bits)%Z in
-  if (l =? 0)%Z
-  then wm
-  else wor (wshr wm l) (wshl wn (bits - l)).
-
-
-(* -------------------------------------------------------------------- *)
 (* Shift transformations.
    Instruction descriptions are defined without optionally shifted registers.
    The following transformation adds a shift argument to an instruction
@@ -1269,7 +524,10 @@ Definition pp_armv8a_op_szs
    selects the W or X form (W-form instructions clear the upper 32 bits of
    their destination registers, [MSB_CLEAR]), and data-processing
    instructions gain a shift operand with [mk_shifted] when [has_shift]
-   is set. *)
+   is set.
+   Each instruction's semantics ([*_semi], parametric in the operand size
+   [ws] unless the instruction exists at a single size) is defined right
+   before the description that uses it. *)
 
 Section ARMV8A_INSTR.
 
@@ -1412,12 +670,87 @@ Notation arith_imm := (Some CAimmC_armv8a_arith_imm) (only parsing).
 Notation bitmask_imm := (Some CAimmC_armv8a_bitmask_imm) (only parsing).
 Notation no_imm := (None : option caimm_checker_s) (only parsing).
 
+(* [C6.2.6 ADD (shifted register)] ARM DDI 0487 M.a, p. 1798
+   Add optionally-shifted register  This instruction adds a register value and
+   an optionally-shifted register value, and writes the result to the
+   destination register.
+   Syntax: ADD <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);
+     bits(datasize) result;
+     (result, -) = AddWithCarry(operand1, operand2, '0');
+     X[d, datasize] = result;
+*)
+Definition armv8a_ADD_semi {ws : wsize} (wn wm : word ws) : ty_w ws :=
+  (wn + wm)%w.
+
 Definition armv8a_ADD_instr : instr_desc_t :=
   mk_arith_instr ADD arith_imm armv8a_ADD_semi.
+(* [C6.2.11 ADDS (shifted register)] ARM DDI 0487 M.a, p. 1807
+   Add optionally-shifted register, setting flags  This instruction adds a
+   register value and an optionally-shifted register value, and writes the
+   result to the destination register. It updates the condition flags based on
+   the result.  This instruction is used by the alias CMN (shifted register).
+   Syntax: ADDS <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);
+     bits(datasize) result;
+     bits(4) nzcv;
+     (result, nzcv) = AddWithCarry(operand1, operand2, '0');
+     X[d, datasize] = result;
+     PSTATE.<N,Z,C,V> = nzcv;
+*)
+Definition armv8a_ADDS_semi {ws : wsize} (wn wm : word ws) : ty_nzcv_w ws :=
+  nzcv_w_of_aluop
+    (wn + wm)%w
+    (wunsigned wn + wunsigned wm)%Z
+    (wsigned wn + wsigned wm)%Z.
+
 Definition armv8a_ADDS_instr : instr_desc_t :=
   mk_ariths_instr ADDS arith_imm armv8a_ADDS_semi.
+(* [C6.2.457 SUB (shifted register)] ARM DDI 0487 M.a, p. 2785
+   Subtract optionally-shifted register  This instruction subtracts an
+   optionally-shifted register value from a register value, and writes the
+   result to the destination register.  This instruction is used by the alias
+   NEG (shifted register).
+   Syntax: SUB <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = NOT(ShiftReg(m, shift_type, shift_amount, datasize));
+     bits(datasize) result;
+     (result, -) = AddWithCarry(operand1, operand2, '1');
+     X[d, datasize] = result;
+*)
+Definition armv8a_SUB_semi {ws : wsize} (wn wm : word ws) : ty_w ws :=
+  (wn - wm)%w.
+
 Definition armv8a_SUB_instr : instr_desc_t :=
   mk_arith_instr SUB arith_imm armv8a_SUB_semi.
+(* [C6.2.464 SUBS (shifted register)] ARM DDI 0487 M.a, p. 2797
+   Subtract optionally-shifted register, setting flags  This instruction
+   subtracts an optionally-shifted register value from a register value, and
+   writes the result to the destination register. It updates the condition
+   flags based on the result.  This instruction is used by the aliases CMP
+   (shifted register) and NEGS.
+   Syntax: SUBS <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = NOT(ShiftReg(m, shift_type, shift_amount, datasize));
+     bits(datasize) result;
+     bits(4) nzcv;
+     (result, nzcv) = AddWithCarry(operand1, operand2, '1');
+     X[d, datasize] = result;
+     PSTATE.<N,Z,C,V> = nzcv;
+*)
+Definition armv8a_SUBS_semi {ws : wsize} (wn wm : word ws) : ty_nzcv_w ws :=
+  let wmnot := wnot wm in
+  nzcv_w_of_aluop
+    (wn + wmnot + 1)%w
+    (wunsigned wn + wunsigned wmnot + 1)%Z
+    (wsigned wn + wsigned wmnot + 1)%Z.
+
 Definition armv8a_SUBS_instr : instr_desc_t :=
   mk_ariths_instr SUBS arith_imm armv8a_SUBS_semi.
 
@@ -1468,10 +801,101 @@ Definition mk_carrys_instr mn (semi : word osz -> word osz -> bool -> ty_nzcv_w 
     id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
   |}.
 
+(* [C6.2.2 ADC] ARM DDI 0487 M.a, p. 1789
+   Add with carry  This instruction adds two register values and the Carry flag
+   value, and writes the result to the destination register.
+   Syntax: ADC <Xd>, <Xn>, <Xm>
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = X[m, datasize];
+     bits(datasize) result;
+     (result, -) = AddWithCarry(operand1, operand2, PSTATE.C);
+     X[d, datasize] = result;
+*)
+Definition armv8a_ADC_semi {ws : wsize} (wn wm : word ws) (cf : bool) : ty_w ws :=
+  let c := Z.b2z cf in
+  (wn + wm + wrepr ws c)%w.
+
 Definition armv8a_ADC_instr : instr_desc_t := mk_carry_instr ADC armv8a_ADC_semi.
+(* [C6.2.3 ADCS] ARM DDI 0487 M.a, p. 1791
+   Add with carry, setting flags  This instruction adds two register values and
+   the Carry flag value, and writes the result to the destination register. It
+   updates the condition flags based on the result.
+   Syntax: ADCS <Xd>, <Xn>, <Xm>
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = X[m, datasize];
+     bits(datasize) result;
+     bits(4) nzcv;
+     (result, nzcv) = AddWithCarry(operand1, operand2, PSTATE.C);
+     X[d, datasize] = result;
+     PSTATE.<N,Z,C,V> = nzcv;
+*)
+Definition armv8a_ADCS_semi {ws : wsize} (wn wm : word ws) (cf : bool) : ty_nzcv_w ws :=
+  let c := Z.b2z cf in
+  nzcv_w_of_aluop
+    (wn + wm + wrepr ws c)%w
+    (wunsigned wn + wunsigned wm + c)%Z
+    (wsigned wn + wsigned wm + c)%Z.
+
 Definition armv8a_ADCS_instr : instr_desc_t := mk_carrys_instr ADCS armv8a_ADCS_semi.
+(* [C6.2.351 SBC] ARM DDI 0487 M.a, p. 2548
+   Subtract with carry  This instruction subtracts a register value and the
+   value of NOT (Carry flag) from a register value, and writes the result to
+   the destination register.  This instruction is used by the alias NGC.
+   Syntax: SBC <Xd>, <Xn>, <Xm>
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = NOT(X[m, datasize]);
+     bits(datasize) result;
+     (result, -) = AddWithCarry(operand1, operand2, PSTATE.C);
+     X[d, datasize] = result;
+*)
+Definition armv8a_SBC_semi {ws : wsize} (wn wm : word ws) (cf : bool) : ty_w ws :=
+  armv8a_ADC_semi wn (wnot wm) cf.
+
 Definition armv8a_SBC_instr : instr_desc_t := mk_carry_instr SBC armv8a_SBC_semi.
+(* [C6.2.352 SBCS] ARM DDI 0487 M.a, p. 2550
+   Subtract with carry, setting flags  This instruction subtracts a register
+   value and the value of NOT (Carry flag) from a register value, and writes
+   the result to the destination register. It updates the condition flags based
+   on the result.  This instruction is used by the alias NGCS.
+   Syntax: SBCS <Xd>, <Xn>, <Xm>
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = NOT(X[m, datasize]);
+     bits(datasize) result;
+     bits(4) nzcv;
+     (result, nzcv) = AddWithCarry(operand1, operand2, PSTATE.C);
+     X[d, datasize] = result;
+     PSTATE.<N,Z,C,V> = nzcv;
+*)
+Definition armv8a_SBCS_semi {ws : wsize} (wn wm : word ws) (cf : bool) : ty_nzcv_w ws :=
+  armv8a_ADCS_semi wn (wnot wm) cf.
+
 Definition armv8a_SBCS_instr : instr_desc_t := mk_carrys_instr SBCS armv8a_SBCS_semi.
+
+(* [C6.2.294 NEG (shifted register)] ARM DDI 0487 M.a, p. 2440
+   Negate (shifted register)  This instruction negates an optionally-shifted
+   register value, and writes the result to the destination register.  This is
+   an alias of SUB (shifted register). This means:  • The encodings in this
+   description are named to match the encodings of SUB (shifted register). •
+   The description of SUB (shifted register) gives the operational pseudocode,
+   any CONSTRAINED UNPREDICTABLE behavior, and any operational information for
+   this instruction.
+   Note: NEG is an alias of SUB (shifted register) with Rn = ZR; the SUB entry carries the operational pseudocode.
+   Syntax: NEG <Xd>, <Xm>{, <shift> #<amount>}  ==  SUB <Xd>, XZR, <Xm>{, <shift> #<amount>}
+   Operation (ASL):
+     The description of SUB (shifted register) gives the operational pseudocode for this instruction.
+   Base instruction [C6.2.457 SUB (shifted register)] p. 2785, Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = NOT(ShiftReg(m, shift_type, shift_amount, datasize));
+     bits(datasize) result;
+     (result, -) = AddWithCarry(operand1, operand2, '1');
+     X[d, datasize] = result;
+*)
+Definition armv8a_NEG_semi {ws : wsize} (wm : word ws) : ty_w ws :=
+  (wnot wm + 1)%w.
 
 Definition armv8a_NEG_instr : instr_desc_t :=
   let mn := NEG in
@@ -1528,8 +952,67 @@ Definition mk_rrr_instr mn (semi : word osz -> word osz -> ty_w osz)
     id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
   |}.
 
+(* [C6.2.292 MUL] ARM DDI 0487 M.a, p. 2436
+   Multiply  This instruction multiplies two register values and writes the
+   result to the destination register.  This is an alias of MADD. This means:
+   • The encodings in this description are named to match the encodings of
+   MADD. • The description of MADD gives the operational pseudocode, any
+   CONSTRAINED UNPREDICTABLE behavior, and any operational information for this
+   instruction.
+   Note: MUL is an alias of MADD with Ra = ZR (see the MADD entry for the operational pseudocode).
+   Syntax: MUL <Xd>, <Xn>, <Xm>  ==  MADD <Xd>, <Xn>, <Xm>, XZR
+   Operation (ASL):
+     The description of MADD gives the operational pseudocode for this instruction.
+*)
+Definition armv8a_MUL_semi {ws : wsize} (wn wm : word ws) : ty_w ws :=
+  (wn * wm)%w.
+
 Definition armv8a_MUL_instr : instr_desc_t := mk_rrr_instr MUL armv8a_MUL_semi.
+(* [C6.2.356 SDIV] ARM DDI 0487 M.a, p. 2558
+   Signed divide  This instruction divides the first signed source register
+   value by the second signed source register value, and writes the result to
+   the destination register. Dividing by zero writes the value zero to the
+   destination register. The condition flags are not affected.
+   Syntax: SDIV <Xd>, <Xn>, <Xm>
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = X[m, datasize];
+     constant integer dividend = SInt(operand1);
+     constant integer divisor = SInt(operand2);
+     integer result;
+     if divisor == 0 then
+         result = 0;
+     elsif (dividend < 0) == (divisor < 0) then
+         result = Abs(dividend) DIV Abs(divisor); // same signs - positive result
+     else
+         result = -(Abs(dividend) DIV Abs(divisor)); // different signs - negative result
+     X[d, datasize] = result<datasize-1:0>;
+*)
+Definition armv8a_SDIV_semi {ws : wsize} (wn wm : word ws) : ty_w ws :=
+  wdivi wn wm.
+
 Definition armv8a_SDIV_instr : instr_desc_t := mk_rrr_instr SDIV armv8a_SDIV_semi.
+(* [C6.2.489 UDIV] ARM DDI 0487 M.a, p. 2846
+   Unsigned divide  This instruction divides the first unsigned source register
+   value by the second unsigned source register value, and writes the result to
+   the destination register. Dividing by zero writes the value zero to the
+   destination register. The condition flags are not affected.
+   Syntax: UDIV <Xd>, <Xn>, <Xm>
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = X[m, datasize];
+     constant integer dividend = UInt(operand1);
+     constant integer divisor = UInt(operand2);
+     integer result;
+     if divisor == 0 then
+         result = 0;
+     else
+         result = dividend DIV divisor;
+     X[d, datasize] = result<datasize-1:0>;
+*)
+Definition armv8a_UDIV_semi {ws : wsize} (wn wm : word ws) : ty_w ws :=
+  wdiv wn wm.
+
 Definition armv8a_UDIV_instr : instr_desc_t := mk_rrr_instr UDIV armv8a_UDIV_semi.
 
 (* Multiply-add and multiply-subtract. *)
@@ -1556,7 +1039,37 @@ Definition mk_madd_instr mn (semi : word osz -> word osz -> word osz -> ty_w osz
     id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
   |}.
 
+(* [C6.2.274 MADD] ARM DDI 0487 M.a, p. 2401
+   Multiply-add  This instruction multiplies two register values, adds a third
+   register value, and writes the result to the destination register.  This
+   instruction is used by the alias MUL.
+   Syntax: MADD <Xd>, <Xn>, <Xm>, <Xa>
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = X[m, datasize];
+     constant bits(datasize) operand3 = X[a, datasize];
+     constant integer result = UInt(operand3) + (UInt(operand1) * UInt(operand2));
+     X[d, datasize] = result<datasize-1:0>;
+*)
+Definition armv8a_MADD_semi {ws : wsize} (wn wm wa : word ws) : ty_w ws :=
+  (wa + wn * wm)%w.
+
 Definition armv8a_MADD_instr : instr_desc_t := mk_madd_instr MADD armv8a_MADD_semi.
+(* [C6.2.290 MSUB] ARM DDI 0487 M.a, p. 2432
+   Multiply-subtract  This instruction multiplies two register values,
+   subtracts the product from a third register value, and writes the result to
+   the destination register.  This instruction is used by the alias MNEG.
+   Syntax: MSUB <Xd>, <Xn>, <Xm>, <Xa>
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = X[m, datasize];
+     constant bits(datasize) operand3 = X[a, datasize];
+     constant integer result = UInt(operand3) - (UInt(operand1) * UInt(operand2));
+     X[d, datasize] = result<datasize-1:0>;
+*)
+Definition armv8a_MSUB_semi {ws : wsize} (wn wm wa : word ws) : ty_w ws :=
+  (wa - wn * wm)%w.
+
 Definition armv8a_MSUB_instr : instr_desc_t := mk_madd_instr MSUB armv8a_MSUB_semi.
 
 (* 32x32 -> 64 multiplies (X form only). *)
@@ -1584,7 +1097,37 @@ Definition mk_mull_instr mn (semi : word U32 -> word U32 -> ty_r)
     id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
   |}.
 
+(* [C6.2.498 UMULL] ARM DDI 0487 M.a, p. 2862
+   Unsigned multiply long  This instruction multiplies two 32-bit register
+   values, and writes the result to the 64-bit destination register.  This is
+   an alias of UMADDL. This means:  • The encodings in this description are
+   named to match the encodings of UMADDL. • The description of UMADDL gives
+   the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any
+   operational information for this instruction.
+   Note: UMULL is an alias of UMADDL with Ra = XZR.
+   Syntax: UMULL <Xd>, <Wn>, <Wm>  ==  UMADDL <Xd>, <Wn>, <Wm>, XZR
+   Operation (ASL):
+     The description of UMADDL gives the operational pseudocode for this instruction.
+*)
+Definition armv8a_UMULL_semi (wn wm : word U32) : ty_r :=
+  (zero_extend U64 wn * zero_extend U64 wm)%w.
+
 Definition armv8a_UMULL_instr : instr_desc_t := mk_mull_instr UMULL armv8a_UMULL_semi.
+(* [C6.2.379 SMULL] ARM DDI 0487 M.a, p. 2616
+   Signed multiply long  This instruction multiplies two 32-bit register
+   values, and writes the result to the 64-bit destination register.  This is
+   an alias of SMADDL. This means:  • The encodings in this description are
+   named to match the encodings of SMADDL. • The description of SMADDL gives
+   the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any
+   operational information for this instruction.
+   Note: SMULL is an alias of SMADDL with Ra = XZR.
+   Syntax: SMULL <Xd>, <Wn>, <Wm>  ==  SMADDL <Xd>, <Wn>, <Wm>, XZR
+   Operation (ASL):
+     The description of SMADDL gives the operational pseudocode for this instruction.
+*)
+Definition armv8a_SMULL_semi (wn wm : word U32) : ty_r :=
+  (sign_extend U64 wn * sign_extend U64 wm)%w.
+
 Definition armv8a_SMULL_instr : instr_desc_t := mk_mull_instr SMULL armv8a_SMULL_semi.
 
 Definition mk_maddl_instr mn (semi : word U32 -> word U32 -> word U64 -> ty_r)
@@ -1612,7 +1155,37 @@ Definition mk_maddl_instr mn (semi : word U32 -> word U32 -> word U64 -> ty_r)
     id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
   |}.
 
+(* [C6.2.490 UMADDL] ARM DDI 0487 M.a, p. 2848
+   Unsigned multiply-add long  This instruction multiplies two 32-bit register
+   values, adds a 64-bit register value, and writes the result to the 64-bit
+   destination register.  This instruction is used by the alias UMULL.
+   Syntax: UMADDL <Xd>, <Wn>, <Wm>, <Xa>
+   Operation (ASL):
+     constant bits(32) operand1 = X[n, 32];
+     constant bits(32) operand2 = X[m, 32];
+     constant bits(64) operand3 = X[a, 64];
+     constant integer result = UInt(operand3) + (UInt(operand1) * UInt(operand2));
+     X[d, 64] = result<63:0>;
+*)
+Definition armv8a_UMADDL_semi (wn wm : word U32) (wa : word U64) : ty_r :=
+  (wa + zero_extend U64 wn * zero_extend U64 wm)%w.
+
 Definition armv8a_UMADDL_instr : instr_desc_t := mk_maddl_instr UMADDL armv8a_UMADDL_semi.
+(* [C6.2.368 SMADDL] ARM DDI 0487 M.a, p. 2599
+   Signed multiply-add long  This instruction multiplies two 32-bit register
+   values, adds a 64-bit register value, and writes the result to the 64-bit
+   destination register.  This instruction is used by the alias SMULL.
+   Syntax: SMADDL <Xd>, <Wn>, <Wm>, <Xa>
+   Operation (ASL):
+     constant bits(32) operand1 = X[n, 32];
+     constant bits(32) operand2 = X[m, 32];
+     constant bits(64) operand3 = X[a, 64];
+     constant integer result = SInt(operand3) + (SInt(operand1) * SInt(operand2));
+     X[d, 64] = result<63:0>;
+*)
+Definition armv8a_SMADDL_semi (wn wm : word U32) (wa : word U64) : ty_r :=
+  (wa + sign_extend U64 wn * sign_extend U64 wm)%w.
+
 Definition armv8a_SMADDL_instr : instr_desc_t := mk_maddl_instr SMADDL armv8a_SMADDL_semi.
 
 (* High 64 bits of a 64x64 multiply (X form only). *)
@@ -1639,11 +1212,47 @@ Definition mk_mulh_instr mn (semi : word U64 -> word U64 -> ty_r)
     id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
   |}.
 
+(* [C6.2.497 UMULH] ARM DDI 0487 M.a, p. 2861
+   Unsigned multiply high  This instruction multiplies two 64-bit register
+   values, and writes bits[127:64] of the 128-bit result to the 64-bit
+   destination register.
+   Syntax: UMULH <Xd>, <Xn>, <Xm>
+   Operation (ASL):
+     constant bits(64) operand1 = X[n, 64];
+     constant bits(64) operand2 = X[m, 64];
+     constant integer result = UInt(operand1) * UInt(operand2);
+     X[d, 64] = result<127:64>;
+*)
+Definition armv8a_UMULH_semi (wn wm : word U64) : ty_r :=
+  (wumul wn wm).1.
+
 Definition armv8a_UMULH_instr : instr_desc_t := mk_mulh_instr UMULH armv8a_UMULH_semi.
+(* [C6.2.378 SMULH] ARM DDI 0487 M.a, p. 2615
+   Signed multiply high  This instruction multiplies two 64-bit register
+   values, and writes bits[127:64] of the 128-bit result to the 64-bit
+   destination register.
+   Syntax: SMULH <Xd>, <Xn>, <Xm>
+   Operation (ASL):
+     constant bits(64) operand1 = X[n, 64];
+     constant bits(64) operand2 = X[m, 64];
+     constant integer result = SInt(operand1) * SInt(operand2);
+     X[d, 64] = result<127:64>;
+*)
+Definition armv8a_SMULH_semi (wn wm : word U64) : ty_r :=
+  wmulhs wn wm.
+
 Definition armv8a_SMULH_instr : instr_desc_t := mk_mulh_instr SMULH armv8a_SMULH_semi.
 
 (* -------------------------------------------------------------------- *)
 (* Bitwise instructions. *)
+
+Definition armv8a_bitwise_semi
+  {ws : wsize}
+  (op0 op1 : word ws -> word ws)
+  (op : word ws -> word ws -> word ws)
+  (wn wm : word ws) :
+  ty_w ws :=
+  op (op0 wn) (op1 wm).
 
 (* [C6.2.15 AND (shifted register)] ARM DDI 0487 M.a, p. 1813
    Bitwise AND (shifted register)  This instruction performs a bitwise AND of a
@@ -1657,6 +1266,23 @@ Definition armv8a_SMULH_instr : instr_desc_t := mk_mulh_instr SMULH armv8a_SMULH
 *)
 Definition armv8a_AND_instr : instr_desc_t :=
   mk_arith_instr AND bitmask_imm (armv8a_bitwise_semi id id wand).
+
+(* [C6.2.17 ANDS (shifted register)] ARM DDI 0487 M.a, p. 1817
+   Bitwise AND (shifted register), setting flags  This instruction performs a
+   bitwise AND of a register value and an optionally-shifted register value,
+   and writes the result to the destination register. It updates the condition
+   flags based on the result.  This instruction is used by the alias TST
+   (shifted register).
+   Syntax: ANDS <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);
+     constant bits(datasize) result = operand1 AND operand2;
+     X[d, datasize] = result;
+     PSTATE.<N,Z,C,V> = result<datasize-1>:IsZeroBit(result):'00';
+*)
+Definition armv8a_ANDS_semi {ws : wsize} (wn wm : word ws) : ty_nzcv_w ws :=
+  nzcv_w_of_logop (wand wn wm).
 
 Definition armv8a_ANDS_instr : instr_desc_t :=
   mk_ariths_instr ANDS bitmask_imm armv8a_ANDS_semi.
@@ -1675,6 +1301,22 @@ Definition armv8a_ANDS_instr : instr_desc_t :=
    invert bitmask immediates into AND/ANDS). *)
 Definition armv8a_BIC_instr : instr_desc_t :=
   mk_arith_instr BIC no_imm (armv8a_bitwise_semi id wnot wand).
+
+(* [C6.2.42 BICS (shifted register)] ARM DDI 0487 M.a, p. 1858
+   Bitwise bit clear (shifted register), setting flags  This instruction
+   performs a bitwise AND of a register value and the complement of an
+   optionally-shifted register value, and writes the result to the destination
+   register. It updates the condition flags based on the result.
+   Syntax: BICS <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);
+     constant bits(datasize) result = operand1 AND NOT(operand2);
+     X[d, datasize] = result;
+     PSTATE.<N,Z,C,V> = result<datasize-1>:IsZeroBit(result):'00';
+*)
+Definition armv8a_BICS_semi {ws : wsize} (wn wm : word ws) : ty_nzcv_w ws :=
+  nzcv_w_of_logop (wand wn (wnot wm)).
 
 Definition armv8a_BICS_instr : instr_desc_t :=
   mk_ariths_instr BICS no_imm armv8a_BICS_semi.
@@ -1705,6 +1347,20 @@ Definition armv8a_ORR_instr : instr_desc_t :=
 *)
 Definition armv8a_EOR_instr : instr_desc_t :=
   mk_arith_instr EOR bitmask_imm (armv8a_bitwise_semi id id wxor).
+
+(* [C6.2.293 MVN] ARM DDI 0487 M.a, p. 2438
+   Bitwise NOT  This instruction writes the bitwise inverse of a register value
+   to the destination register.  This is an alias of ORN (shifted register).
+   This means:  • The encodings in this description are named to match the
+   encodings of ORN (shifted register). • The description of ORN (shifted
+   register) gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE
+   behavior, and any operational information for this instruction.
+   Syntax: MVN <Xd>, <Xm>{, <shift> #<amount>}  ==  ORN <Xd>, XZR, <Xm>{, <shift> #<amount>}
+   Operation (ASL):
+     The description of ORN (shifted register) gives the operational pseudocode for this instruction.
+*)
+Definition armv8a_MVN_semi {ws : wsize} (wm : word ws) : ty_w ws :=
+  wnot wm.
 
 (* MVN is an alias of ORN (shifted register); it has no immediate form
    (an inverted immediate is a MOV with the complemented value). *)
@@ -1746,6 +1402,14 @@ Definition armv8a_MVN_instr : instr_desc_t :=
    the alias mnemonics (ASR, ...) are provided: they accept registers and
    immediates, subsuming the base variable forms (ASRV, ...), which accept
    only registers and are otherwise identical. *)
+
+(* Shift semantics: the shift amount is the value of the last operand
+   modulo the operand size in bits. *)
+Definition armv8a_shift_semi
+  {ws : wsize} (op : forall sz, word sz -> Z -> word sz)
+  (wn : word ws) (wsham : word U8) : ty_w ws :=
+  let sham := (wunsigned wsham mod wsize_bits ws)%Z in
+  op ws wn sham.
 
 Definition mk_shift_instr mn (op : forall sz, word sz -> Z -> word sz)
   : instr_desc_t :=
@@ -2159,6 +1823,25 @@ Definition armv8a_SBFX_instr : instr_desc_t := mk_bfx_instr SBFX (wsar (sz := os
 *)
 Definition armv8a_UBFX_instr : instr_desc_t := mk_bfx_instr UBFX (wshr (sz := osz)).
 
+(* [C6.2.160 EXTR] ARM DDI 0487 M.a, p. 2174
+   Extract register  This instruction extracts a register from a pair of
+   registers.  This instruction is used by the alias ROR (immediate).
+   Syntax: EXTR <Xd>, <Xn>, <Xm>, #<lsb>
+   Operation (ASL):
+     bits(datasize) result;
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant bits(datasize) operand2 = X[m, datasize];
+     constant bits(2*datasize) concat = operand1:operand2;
+     result = concat<(lsb+datasize)-1:lsb>;
+     X[d, datasize] = result;
+*)
+Definition armv8a_EXTR_semi {ws : wsize} (wn wm : word ws) (wlsb : word U8) : ty_w ws :=
+  let bits := wsize_bits ws in
+  let l := (wunsigned wlsb mod bits)%Z in
+  if (l =? 0)%Z
+  then wm
+  else wor (wshr wm l) (wshl wn (bits - l)).
+
 Definition armv8a_EXTR_instr : instr_desc_t :=
   let mn := EXTR in
   let tin := [:: lword osz; lword osz; lword U8 ] in
@@ -2185,6 +1868,20 @@ Definition armv8a_EXTR_instr : instr_desc_t :=
 
 (* -------------------------------------------------------------------- *)
 (* Moves. *)
+
+(* [C6.2.281 MOV (register)] ARM DDI 0487 M.a, p. 2413
+   Move register value  This instruction copies the value in a source register
+   to the destination register.  This is an alias of ORR (shifted register).
+   This means:  • The encodings in this description are named to match the
+   encodings of ORR (shifted register). • The description of ORR (shifted
+   register) gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE
+   behavior, and any operational information for this instruction.
+   Syntax: MOV <Xd>, <Xm>  ==  ORR <Xd>, XZR, <Xm>
+   Operation (ASL):
+     The description of ORR (shifted register) gives the operational pseudocode for this instruction.
+*)
+Definition armv8a_MOV_semi {ws : wsize} (wn : word ws) : ty_w ws :=
+  wn.
 
 Definition armv8a_MOV_instr : instr_desc_t :=
   let mn := MOV in
@@ -2234,11 +1931,51 @@ Definition mk_movw_instr mn (semi : word U16 -> word U8 -> ty_w osz)
     id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
   |}.
 
+(* [C6.2.284 MOVZ] ARM DDI 0487 M.a, p. 2418
+   Move wide with zero  This instruction moves an optionally-shifted 16-bit
+   immediate value to a register.  This instruction is used by the alias MOV
+   (wide immediate).
+   Syntax: MOVZ <Xd>, #<imm>{, LSL #<shift>}
+   Operation (ASL):
+     bits(datasize) result = Zeros(datasize);
+     result<pos+15:pos> = imm;
+     X[d, datasize] = result;
+*)
+Definition armv8a_MOVZ_semi {ws : wsize} (imm : word U16) (wsh : word U8) : ty_w ws :=
+  wshl (zero_extend ws imm) (wunsigned wsh).
+
 Definition armv8a_MOVZ_instr : instr_desc_t :=
   mk_movw_instr MOVZ (armv8a_MOVZ_semi (ws := osz)).
 
+(* [C6.2.283 MOVN] ARM DDI 0487 M.a, p. 2416
+   Move wide with NOT  This instruction moves the inverse of an optionally-
+   shifted 16-bit immediate value to a register.  This instruction is used by
+   the alias MOV (inverted wide immediate).
+   Syntax: MOVN <Xd>, #<imm>{, LSL #<shift>}
+   Operation (ASL):
+     bits(datasize) result = Zeros(datasize);
+     result<pos+15:pos> = imm;
+     X[d, datasize] = NOT(result);
+*)
+Definition armv8a_MOVN_semi {ws : wsize} (imm : word U16) (wsh : word U8) : ty_w ws :=
+  wnot (wshl (zero_extend ws imm) (wunsigned wsh)).
+
 Definition armv8a_MOVN_instr : instr_desc_t :=
   mk_movw_instr MOVN (armv8a_MOVN_semi (ws := osz)).
+
+(* [C6.2.282 MOVK] ARM DDI 0487 M.a, p. 2415
+   Move wide with keep  This instruction moves an optionally-shifted 16-bit
+   immediate value into a register, keeping other bits unchanged.
+   Syntax: MOVK <Xd>, #<imm>{, LSL #<shift>}
+   Operation (ASL):
+     bits(datasize) result = X[d, datasize];
+     result<pos+15:pos> = imm;
+     X[d, datasize] = result;
+*)
+Definition armv8a_MOVK_semi {ws : wsize} (old : word ws) (imm : word U16) (wsh : word U8) : ty_w ws :=
+  let sh := wunsigned wsh in
+  let mask := wshl (zero_extend ws (wrepr U16 (-1))) sh in
+  wor (wshl (zero_extend ws imm) sh) (wand old (wnot mask)).
 
 Definition armv8a_MOVK_instr : instr_desc_t :=
   let mn := MOVK in
@@ -2263,6 +2000,17 @@ Definition armv8a_MOVK_instr : instr_desc_t :=
     id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
     id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
   |}.
+
+(* [C6.2.12 ADR] ARM DDI 0487 M.a, p. 1809
+   Form PC-relative address  This instruction adds an immediate value to the PC
+   value to form a PC-relative address, and writes the result to the
+   destination register.
+   Syntax: ADR <Xd>, <label>
+   Operation (ASL):
+     X[d, 64] = PC64 + imm;
+*)
+Definition armv8a_ADR_semi (wn : word U64) : ty_r :=
+  wn.
 
 Definition armv8a_ADR_instr : instr_desc_t :=
   let mn := ADR in
@@ -2292,6 +2040,11 @@ Definition armv8a_ADR_instr : instr_desc_t :=
 (* Extensions.
    [in_ws] is the width of the extracted low bits; the result is extended
    to the operand size. SXTW and UXTW only exist in the X form. *)
+
+Definition armv8a_extend_semi
+  {ws : wsize} (sign : bool) (ws' : wsize) (wn : word ws) : word ws' :=
+  let f := if sign then sign_extend else zero_extend in
+  (f ws' ws wn).
 
 Definition mk_extend_instr mn (in_ws : wsize) (sign : bool) (valid : bool)
   : instr_desc_t :=
@@ -2422,11 +2175,104 @@ Definition mk_unary_instr mn (semi : word osz -> ty_w osz) (valid : bool)
     id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
   |}.
 
+(* [C6.2.320 RBIT] ARM DDI 0487 M.a, p. 2484
+   Reverse bits  This instruction reverses the bit order in a register.
+   Syntax: RBIT <Xd>, <Xn>
+   Operation (ASL):
+     constant bits(datasize) operand = X[n, datasize];
+     bits(datasize) result;
+     for i = 0 to datasize-1
+         result<(datasize-1)-i> = operand<i>;
+     X[d, datasize] = result;
+*)
+Definition armv8a_RBIT_semi {ws : wsize} (w : word ws) : ty_w ws :=
+  winit ws (fun i => wbit_n w (Z.to_nat (wsize_bits ws) - 1 - i)).
+
 Definition armv8a_RBIT_instr := mk_unary_instr RBIT (armv8a_RBIT_semi (ws := osz)) osz_valid.
+(* [C6.2.341 REV] ARM DDI 0487 M.a, p. 2532
+   Reverse bytes  This instruction reverses the byte order in a register.  This
+   instruction is used by the pseudo-instruction REV64.
+   Syntax: REV <Xd>, <Xn>
+   Operation (ASL):
+     constant bits(datasize) operand = X[n, datasize];
+     bits(datasize) result;
+     constant integer containers = datasize DIV container_size;
+     for c = 0 to containers-1
+         constant bits(container_size) container = Elem[operand, c, container_size];
+         Elem[result, c, container_size] = Reverse(container, 8);
+     X[d, datasize] = result;
+*)
+Definition armv8a_REV_semi {ws : wsize} (w : word ws) : ty_w ws :=
+  wbswap w.
+
 Definition armv8a_REV_instr := mk_unary_instr REV (armv8a_REV_semi (ws := osz)) osz_valid.
+(* [C6.2.342 REV16] ARM DDI 0487 M.a, p. 2534
+   Reverse bytes in 16-bit halfwords  This instruction reverses the byte order
+   in each 16-bit halfword of a register.
+   Syntax: REV16 <Xd>, <Xn>
+   Operation (ASL):
+     constant bits(datasize) operand = X[n, datasize];
+     bits(datasize) result;
+     constant integer containers = datasize DIV container_size;
+     for c = 0 to containers-1
+         constant bits(container_size) container = Elem[operand, c, container_size];
+         Elem[result, c, container_size] = Reverse(container, 8);
+     X[d, datasize] = result;
+*)
+Definition armv8a_REV16_semi {ws : wsize} (w : word ws) : ty_w ws :=
+  lift1_vec U16 (@wbswap U16) ws w.
+
 Definition armv8a_REV16_instr := mk_unary_instr REV16 (armv8a_REV16_semi (ws := osz)) osz_valid.
+(* [C6.2.91 CLZ] ARM DDI 0487 M.a, p. 1940
+   Count leading zeros  This instruction counts the number of consecutive
+   binary zero bits, starting from the most significant bit in the source
+   register, and places the count in the destination register.
+   Syntax: CLZ <Xd>, <Xn>
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant integer result = CountLeadingZeroBits(operand1);
+     X[d, datasize] = result<datasize-1:0>;
+*)
+Definition armv8a_CLZ_semi {ws : wsize} (w : word ws) : ty_w ws :=
+  leading_zero w.
+
 Definition armv8a_CLZ_instr := mk_unary_instr CLZ (armv8a_CLZ_semi (ws := osz)) osz_valid.
+(* [C6.2.90 CLS] ARM DDI 0487 M.a, p. 1939
+   Count leading sign bits  This instruction counts the number of leading bits
+   of the source register that have the same value as the most significant bit
+   of the register, and writes the result to the destination register. This
+   count does not include the most significant bit of the source register.
+   Syntax: CLS <Xd>, <Xn>
+   Operation (ASL):
+     constant bits(datasize) operand1 = X[n, datasize];
+     constant integer result = CountLeadingSignBits(operand1);
+     X[d, datasize] = result<datasize-1:0>;
+*)
+(* CountLeadingSignBits(x) = CountLeadingZeroBits(x<msb:1> EOR x<msb-1:0>):
+   the (N-1)-bit word [x<msb:1> EOR x<msb-1:0>] is computed as the N-bit
+   word [(x >> 1) EOR x] with its top bit cleared, whose leading-zero
+   count is one more than that of the (N-1)-bit word. *)
+Definition armv8a_CLS_semi {ws : wsize} (w : word ws) : ty_w ws :=
+  let t := wand (wxor (wshr w 1) w) (wrepr ws (2 ^ (wsize_bits ws - 1) - 1)) in
+  (leading_zero t - 1)%w.
+
 Definition armv8a_CLS_instr := mk_unary_instr CLS (armv8a_CLS_semi (ws := osz)) osz_valid.
+
+(* [C6.2.343 REV32] ARM DDI 0487 M.a, p. 2536
+   Reverse bytes in 32-bit words  This instruction reverses the byte order in
+   each 32-bit word of a register.
+   Syntax: REV32 <Xd>, <Xn>
+   Operation (ASL):
+     constant bits(datasize) operand = X[n, datasize];
+     bits(datasize) result;
+     constant integer containers = datasize DIV container_size;
+     for c = 0 to containers-1
+         constant bits(container_size) container = Elem[operand, c, container_size];
+         Elem[result, c, container_size] = Reverse(container, 8);
+     X[d, datasize] = result;
+*)
+Definition armv8a_REV32_semi (w : word U64) : ty_r :=
+  lift1_vec U32 (@wbswap U32) U64 w.
 
 Definition armv8a_REV32_instr : instr_desc_t :=
   let mn := REV32 in
@@ -2486,10 +2332,65 @@ Definition mk_cmp_instr mn (ick : option caimm_checker_s)
                        (fun h => mk_semi2_2_shifted_safe sk (x.(id_semi_safe) h))
   else x.
 
+(* [C6.2.97 CMP (shifted register)] ARM DDI 0487 M.a, p. 1953
+   Compare (shifted register)  This instruction subtracts an optionally-shifted
+   register value from a register value. It updates the condition flags based
+   on the result, and discards the result.  This is an alias of SUBS (shifted
+   register). This means:  • The encodings in this description are named to
+   match the encodings of SUBS (shifted register). • The description of SUBS
+   (shifted register) gives the operational pseudocode, any CONSTRAINED
+   UNPREDICTABLE behavior, and any operational information for this
+   instruction.
+   Syntax: CMP <Wn>, <Wm>{, <shift> #<amount>}  ==  CMP <Xn>, <Xm>{, <shift> #<amount>}
+   Operation (ASL):
+     The description of SUBS (shifted register) gives the operational pseudocode for this instruction.
+*)
+Definition armv8a_CMP_semi {ws : wsize} (wn wm : word ws) : ty_nzcv :=
+  let wmnot := wnot wm in
+  nzcv_of_aluop
+    (wn + wmnot + 1)%w
+    (wunsigned wn + wunsigned wmnot + 1)%Z
+    (wsigned wn + wsigned wmnot + 1)%Z.
+
 Definition armv8a_CMP_instr : instr_desc_t :=
   mk_cmp_instr CMP arith_imm armv8a_CMP_semi.
+(* [C6.2.94 CMN (shifted register)] ARM DDI 0487 M.a, p. 1946
+   Compare negative (shifted register)  This instruction adds a register value
+   and an optionally-shifted register value. It updates the condition flags
+   based on the result, and discards the result.  This is an alias of ADDS
+   (shifted register). This means:  • The encodings in this description are
+   named to match the encodings of ADDS (shifted register). • The description
+   of ADDS (shifted register) gives the operational pseudocode, any CONSTRAINED
+   UNPREDICTABLE behavior, and any operational information for this
+   instruction.
+   Syntax: CMN <Wn>, <Wm>{, <shift> #<amount>}  ==  CMN <Xn>, <Xm>{, <shift> #<amount>}
+   Operation (ASL):
+     The description of ADDS (shifted register) gives the operational pseudocode for this instruction.
+*)
+Definition armv8a_CMN_semi {ws : wsize} (wn wm : word ws) : ty_nzcv :=
+  nzcv_of_aluop
+    (wn + wm)%w
+    (wunsigned wn + wunsigned wm)%Z
+    (wsigned wn + wsigned wm)%Z.
+
 Definition armv8a_CMN_instr : instr_desc_t :=
   mk_cmp_instr CMN arith_imm armv8a_CMN_semi.
+(* [C6.2.484 TST (shifted register)] ARM DDI 0487 M.a, p. 2837
+   Test (shifted register)  This instruction performs a bitwise AND operation
+   on a register value and an optionally-shifted register value. It updates the
+   condition flags based on the result, and discards the result.  This is an
+   alias of ANDS (shifted register). This means:  • The encodings in this
+   description are named to match the encodings of ANDS (shifted register). •
+   The description of ANDS (shifted register) gives the operational pseudocode,
+   any CONSTRAINED UNPREDICTABLE behavior, and any operational information for
+   this instruction.
+   Syntax: TST <Wn>, <Wm>{, <shift> #<amount>}  ==  TST <Xn>, <Xm>{, <shift> #<amount>}
+   Operation (ASL):
+     The description of ANDS (shifted register) gives the operational pseudocode for this instruction.
+*)
+Definition armv8a_TST_semi {ws : wsize} (wn wm : word ws) : ty_nzcv :=
+  nzcv_of_logop (wand wn wm).
+
 Definition armv8a_TST_instr : instr_desc_t :=
   mk_cmp_instr TST bitmask_imm armv8a_TST_semi.
 
@@ -2522,9 +2423,77 @@ Definition mk_csel_instr mn (semi : word osz -> word osz -> bool -> ty_w osz)
     id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
   |}.
 
+(* [C6.2.138 CSEL] ARM DDI 0487 M.a, p. 2138
+   Conditional select  This instruction writes the value of the first source
+   register to the destination register if the condition is TRUE. If the
+   condition is FALSE, it writes the value of the second source register to the
+   destination register.
+   Syntax: CSEL <Xd>, <Xn>, <Xm>, <cond>
+   Operation (ASL):
+     bits(datasize) result;
+     if ConditionHolds(condition) then
+         result = X[n, datasize];
+     else
+         result = X[m, datasize];
+     X[d, datasize] = result;
+*)
+Definition armv8a_CSEL_semi {ws : wsize} (wn wm : word ws) (b : bool) : ty_w ws :=
+  if b then wn else wm.
+
 Definition armv8a_CSEL_instr := mk_csel_instr CSEL (armv8a_CSEL_semi (ws := osz)).
+(* [C6.2.141 CSINC] ARM DDI 0487 M.a, p. 2144
+   Conditional select increment  This instruction returns, in the destination
+   register, the value of the first source register if the condition is TRUE,
+   and otherwise returns the value of the second source register incremented by
+   1.  This instruction is used by the aliases CINC and CSET.
+   Syntax: CSINC <Xd>, <Xn>, <Xm>, <cond>
+   Operation (ASL):
+     bits(datasize) result;
+     if ConditionHolds(condition) then
+         result = X[n, datasize];
+     else
+         result = X[m, datasize] + 1;
+     X[d, datasize] = result;
+*)
+Definition armv8a_CSINC_semi {ws : wsize} (wn wm : word ws) (b : bool) : ty_w ws :=
+  if b then wn else (wm + 1)%w.
+
 Definition armv8a_CSINC_instr := mk_csel_instr CSINC (armv8a_CSINC_semi (ws := osz)).
+(* [C6.2.142 CSINV] ARM DDI 0487 M.a, p. 2146
+   Conditional select invert  This instruction returns, in the destination
+   register, the value of the first source register if the condition is TRUE,
+   and otherwise returns the bitwise inversion value of the second source
+   register.  This instruction is used by the aliases CINV and CSETM.
+   Syntax: CSINV <Xd>, <Xn>, <Xm>, <cond>
+   Operation (ASL):
+     bits(datasize) result;
+     if ConditionHolds(condition) then
+         result = X[n, datasize];
+     else
+         result = NOT(X[m, datasize]);
+     X[d, datasize] = result;
+*)
+Definition armv8a_CSINV_semi {ws : wsize} (wn wm : word ws) (b : bool) : ty_w ws :=
+  if b then wn else wnot wm.
+
 Definition armv8a_CSINV_instr := mk_csel_instr CSINV (armv8a_CSINV_semi (ws := osz)).
+(* [C6.2.143 CSNEG] ARM DDI 0487 M.a, p. 2148
+   Conditional select negation  This instruction returns, in the destination
+   register, the value of the first source register if the condition is TRUE,
+   and otherwise returns the negated value of the second source register.  This
+   instruction is used by the alias CNEG.
+   Syntax: CSNEG <Xd>, <Xn>, <Xm>, <cond>
+   Operation (ASL):
+     bits(datasize) result;
+     if ConditionHolds(condition) then
+         result = X[n, datasize];
+     else
+         result = NOT(X[m, datasize]) + 1;
+     X[d, datasize] = result;
+*)
+Definition armv8a_CSNEG_semi {ws : wsize} (wn wm : word ws) (b : bool) : ty_w ws :=
+  if b then wn else (wnot wm + 1)%w.
+
 Definition armv8a_CSNEG_instr := mk_csel_instr CSNEG (armv8a_CSNEG_semi (ws := osz)).
 
 Definition mk_cset_instr mn (semi : bool -> ty_w osz) : instr_desc_t :=
@@ -2549,7 +2518,35 @@ Definition mk_cset_instr mn (semi : bool -> ty_w osz) : instr_desc_t :=
     id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
   |}.
 
+(* [C6.2.139 CSET] ARM DDI 0487 M.a, p. 2140
+   Conditional set  This instruction sets the destination register to 1 if the
+   condition is TRUE, and otherwise sets it to 0.  This is an alias of CSINC.
+   This means:  • The encodings in this description are named to match the
+   encodings of CSINC. • The description of CSINC gives the operational
+   pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational
+   information for this instruction.
+   Syntax: CSET <Xd>, <invcond>  ==  CSINC <Xd>, XZR, XZR, <cond>
+   Operation (ASL):
+     The description of CSINC gives the operational pseudocode for this instruction.
+*)
+Definition armv8a_CSET_semi {ws : wsize} (b : bool) : ty_w ws :=
+  if b then 1%w else 0%w.
+
 Definition armv8a_CSET_instr := mk_cset_instr CSET (armv8a_CSET_semi (ws := osz)).
+(* [C6.2.140 CSETM] ARM DDI 0487 M.a, p. 2142
+   Conditional set mask  This instruction sets all bits of the destination
+   register to 1 if the condition is TRUE, and otherwise sets all bits to 0.
+   This is an alias of CSINV. This means:  • The encodings in this description
+   are named to match the encodings of CSINV. • The description of CSINV gives
+   the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any
+   operational information for this instruction.
+   Syntax: CSETM <Xd>, <invcond>  ==  CSINV <Xd>, XZR, XZR, <cond>
+   Operation (ASL):
+     The description of CSINV gives the operational pseudocode for this instruction.
+*)
+Definition armv8a_CSETM_semi {ws : wsize} (b : bool) : ty_w ws :=
+  if b then wrepr ws (-1) else 0%w.
+
 Definition armv8a_CSETM_instr := mk_cset_instr CSETM (armv8a_CSETM_semi (ws := osz)).
 
 (* -------------------------------------------------------------------- *)
