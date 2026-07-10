@@ -61,26 +61,20 @@ let pp_reg_address addr =
 
 let pp_condt = hash_to_string string_of_condt
 
+(* A64 has no conditional execution: a condition is always a proper operand
+   (CSEL, CSET, ...), declared last in the argument list, so it is printed
+   in place like any other operand. *)
 let pp_asm_arg ?(wform = false) (arg : (register, Arch_utils.empty, Arch_utils.empty, rflag, condt) asm_arg) =
   match arg with
-  | Condt _ -> None
-  | Imm (ws, w) -> Some (pp_imm (Conv.z_unsigned_of_word ws w))
-  | Reg r -> Some (if wform then pp_wregister r else pp_register r)
+  | Condt ct -> pp_condt ct
+  | Imm (ws, w) -> pp_imm (Conv.z_unsigned_of_word ws w)
+  | Reg r -> if wform then pp_wregister r else pp_register r
   | Regx _ -> .
-  | Addr (Areg ra) ->
-      Some (pp_reg_address ra)
-  | Addr (Arip r) -> Some (pp_rip_address r)
+  | Addr (Areg ra) -> pp_reg_address ra
+  | Addr (Arip r) -> pp_rip_address r
   | XReg _ -> .
 
 (* -------------------------------------------------------------------- *)
-
-(* We assume the only condition in the argument list is the one we need to
-   print. A64 has no conditional execution: a condition is always a proper
-   operand (CSEL, CSET, ...), printed last. *)
-let pp_condition_operand args =
-  match List.opick (is_Condt arch) args with
-  | Some ct -> [ pp_condt ct ]
-  | None -> []
 
 let pp_shift_kind = hash_to_string string_of_shift_kind
 
@@ -198,7 +192,7 @@ module Armv8aTarget : AsmTargetBuilder.AsmTarget with
         [ Instr ("bl", [ pp_syscall op ]) ]
 
     | Declassify_val (lty, a) ->
-        declassify_val (fun _lty a -> Option.default "" (pp_asm_arg a)) lty a
+        declassify_val (fun _lty a -> pp_asm_arg a) lty a
 
     | Declassify_mem (len, a) ->
         declassify_mem arch len a
@@ -209,16 +203,14 @@ module Armv8aTarget : AsmTargetBuilder.AsmTarget with
         let pp = id.id_pp_asm args in
         match op, args with
         | ARMv8A_op (ADR, _), _ :: Addr (Arip _) :: _ ->
-            let args =
-              List.filter_map (fun (_, a) -> pp_asm_arg a) pp.pp_aop_args
-            in
+            let args = List.map (fun (_, a) -> pp_asm_arg a) pp.pp_aop_args in
             pp_ADR args
         | _, _ ->
             let name = pp_mnemonic op in
             (* Registers are printed in the W form when the instruction
                declaration pairs them with a width of at most [U32]. *)
             let pargs =
-              List.filter_map
+              List.map
                 (fun (sz, a) -> pp_asm_arg ~wform:(Wsize.size_8_32 sz) a)
                 pp.pp_aop_args
             in
@@ -227,7 +219,6 @@ module Armv8aTarget : AsmTargetBuilder.AsmTarget with
               | MOVZ | MOVN | MOVK -> pp_mov_wide_shift pargs
               | _ -> pp_shift op pargs
             in
-            let pargs = pargs @ pp_condition_operand args in
             [ Instr (name, pargs) ]
 
 end
