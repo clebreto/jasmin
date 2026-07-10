@@ -1240,12 +1240,26 @@ Arguments mk_shifted : clear implicits.
 (* -------------------------------------------------------------------- *)
 (* Printing. *)
 
+(* The [wsize] paired with each argument is the width of the register form
+   to print: W for widths up to [U32], X for [U64]. It only matters for
+   register operands. *)
 Definition pp_armv8a_op
   (mn : armv8a_mnemonic) (opts : armv8a_options) (args : seq asm_arg) : pp_asm_op :=
   {|
     pp_aop_name := string_of_armv8a_mnemonic mn;
     pp_aop_ext := PP_name;
     pp_aop_args := map (fun a => (opts_size opts, a)) args;
+  |}.
+
+(* Same as [pp_armv8a_op] with an explicit width per argument, for the
+   instructions whose operands are not all [opts_size]-wide (narrow loads
+   and stores, 32-bit multiplies, extensions). *)
+Definition pp_armv8a_op_szs
+  (mn : armv8a_mnemonic) (szs : seq wsize) (args : seq asm_arg) : pp_asm_op :=
+  {|
+    pp_aop_name := string_of_armv8a_mnemonic mn;
+    pp_aop_ext := PP_name;
+    pp_aop_args := zip szs args;
   |}.
 
 
@@ -1562,7 +1576,8 @@ Definition mk_mull_instr mn (semi : word U32 -> word U32 -> ty_r)
     id_check_dest := refl_equal;
     id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
     id_safe := [::];
-    id_pp_asm := pp_armv8a_op mn opts;
+    (* [UMULL <Xd>, <Wn>, <Wm>]: the sources are always W registers. *)
+    id_pp_asm := pp_armv8a_op_szs mn [:: osz; U32; U32 ];
     id_valid := osz == U64;
     id_safe_wf := refl_equal;
     id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
@@ -1588,7 +1603,9 @@ Definition mk_maddl_instr mn (semi : word U32 -> word U32 -> word U64 -> ty_r)
     id_check_dest := refl_equal;
     id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
     id_safe := [::];
-    id_pp_asm := pp_armv8a_op mn opts;
+    (* [UMADDL <Xd>, <Wn>, <Wm>, <Xa>]: the multiply sources are always W
+       registers. *)
+    id_pp_asm := pp_armv8a_op_szs mn [:: osz; U32; U32; osz ];
     id_valid := osz == U64;
     id_safe_wf := refl_equal;
     id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
@@ -2293,7 +2310,9 @@ Definition mk_extend_instr mn (in_ws : wsize) (sign : bool) (valid : bool)
     id_check_dest := refl_equal;
     id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
     id_safe := [::];
-    id_pp_asm := pp_armv8a_op mn opts;
+    (* [SXTB <Xd>, <Wn>] / [UXTB <Wd>, <Wn>]: the source is always a W
+       register, and so is the destination of the zero-extensions. *)
+    id_pp_asm := pp_armv8a_op_szs mn [:: (if sign then osz else U32); U32 ];
     id_valid := valid;
     id_safe_wf := refl_equal;
     id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
@@ -2585,7 +2604,12 @@ Definition armv8a_load_instr mn : instr_desc_t :=
     id_check_dest := refl_equal;
     id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
     id_safe := [::];
-    id_pp_asm := pp_armv8a_op mn opts;
+    (* The transferred register of the zero-extending narrow loads is
+       always a W register ([LDRB <Wt>, ...]); the sign-extending loads
+       name it at the operand size ([LDRSB <Wt>|<Xt>, ...]). *)
+    id_pp_asm :=
+      pp_armv8a_op_szs mn
+        [:: (match mn with LDRB | LDRH => U32 | _ => osz end); osz ];
     id_valid := osz_valid && (if mn is LDRSW then osz == U64 else true);
     id_safe_wf := refl_equal;
     id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
@@ -2755,7 +2779,11 @@ Definition armv8a_store_instr mn : instr_desc_t :=
     id_check_dest := refl_equal;
     id_str_jas := pp_s (string_of_armv8a_mnemonic mn);
     id_safe := [::];
-    id_pp_asm := pp_armv8a_op mn opts;
+    (* The transferred register of the narrow stores is always a W
+       register ([STRB <Wt>, ...]). *)
+    id_pp_asm :=
+      pp_armv8a_op_szs mn
+        [:: (match mn with STRB | STRH => U32 | _ => osz end); osz ];
     id_valid := osz_valid;
     id_safe_wf := refl_equal;
     id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
