@@ -592,14 +592,14 @@ Notation assemble_extra_correct :=
 Local Instance the_asm : asm _ _ _ _ _ _ := _.
 
 Lemma condt_of_rflagP rf r :
-  armv8a_eval_cond (get_rf rf) (condt_of_rflag r) = to_bool (of_rbool (rf r)).
+  arm_eval_cond (get_rf rf) (condt_of_rflag r) = to_bool (of_rbool (rf r)).
 Proof.
   rewrite -get_rf_to_bool_of_rbool. by case: r.
 Qed.
 
 Lemma condt_notP rf c b :
-  armv8a_eval_cond rf c = ok b
-  -> armv8a_eval_cond rf (condt_not c) = ok (negb b).
+  arm_eval_cond rf c = ok b
+  -> arm_eval_cond rf (condt_not c) = ok (negb b).
 Proof.
   case: c => /=.
 
@@ -621,13 +621,13 @@ Qed.
 
 Lemma condt_andP rf c0 c1 c b0 b1 :
   condt_and c0 c1 = Some c
-  -> armv8a_eval_cond rf c0 = ok b0
-  -> armv8a_eval_cond rf c1 = ok b1
-  -> armv8a_eval_cond rf c = ok (b0 && b1).
+  -> arm_eval_cond rf c0 = ok b0
+  -> arm_eval_cond rf c1 = ok b1
+  -> arm_eval_cond rf c = ok (b0 && b1).
 Proof.
   move: c0 c1 => [] [] //.
   all: move=> [?]; subst c.
-  all: rewrite /armv8a_eval_cond /=.
+  all: rewrite /arm_eval_cond /=.
 
   all: t_xrbindP=> *.
   all: subst=> /=.
@@ -645,13 +645,13 @@ Qed.
 
 Lemma condt_orP rf c0 c1 c b0 b1 :
   condt_or c0 c1 = Some c
-  -> armv8a_eval_cond rf c0 = ok b0
-  -> armv8a_eval_cond rf c1 = ok b1
-  -> armv8a_eval_cond rf c = ok (b0 || b1).
+  -> arm_eval_cond rf c0 = ok b0
+  -> arm_eval_cond rf c1 = ok b1
+  -> arm_eval_cond rf c = ok (b0 || b1).
 Proof.
   move: c0 c1 => [] [] //.
   all: move=> [?]; subst c.
-  all: rewrite /armv8a_eval_cond /=.
+  all: rewrite /arm_eval_cond /=.
 
   all: t_xrbindP=> *.
   all: subst=> /=.
@@ -672,7 +672,7 @@ Lemma eval_assemble_cond_Pvar ii m rf x r v :
   -> of_var_e ii x = ok r
   -> get_var true (evm m) x = ok v
   -> exists2 v',
-       value_of_bool (armv8a_eval_cond (get_rf rf) (condt_of_rflag r)) = ok v'
+       value_of_bool (arm_eval_cond (get_rf rf) (condt_of_rflag r)) = ok v'
        & value_uincl v v'.
 Proof.
   move=> eqf hr hv.
@@ -687,11 +687,11 @@ Proof.
 Qed.
 
 Lemma eval_assemble_cond_Onot rf c v v0 v1 :
-  value_of_bool (armv8a_eval_cond (get_rf rf) c) = ok v1
+  value_of_bool (arm_eval_cond (get_rf rf) c) = ok v1
   -> value_uincl v0 v1
   -> sem_sop1 Onot v0 = ok v
   -> exists2 v',
-       value_of_bool (armv8a_eval_cond (get_rf rf) (condt_not c)) = ok v'
+       value_of_bool (arm_eval_cond (get_rf rf) (condt_not c)) = ok v'
        & value_uincl v v'.
 Proof.
   move=> hv1 hincl.
@@ -713,7 +713,7 @@ Lemma eval_assemble_cond_Obeq ii m rf v x0 x1 r0 r1 v0 v1 :
   -> get_var true (evm m) x1 = ok v1
   -> sem_sop2 Obeq v0 v1 = ok v
   -> exists2 v',
-       value_of_bool (armv8a_eval_cond (get_rf rf) GE_ct) = ok v'
+       value_of_bool (arm_eval_cond (get_rf rf) GE_ct) = ok v'
        & value_uincl v v'.
 Proof.
   move=> hGE eqf hr0 hv0 hr1 hv1.
@@ -741,13 +741,13 @@ Qed.
 
 Lemma eval_assemble_cond_Oand rf c c0 c1 v v0 v1 v0' v1' :
   condt_and c0 c1 = Some c
-  -> value_of_bool (armv8a_eval_cond (get_rf rf) c0) = ok v0'
+  -> value_of_bool (arm_eval_cond (get_rf rf) c0) = ok v0'
   -> value_uincl v0 v0'
-  -> value_of_bool (armv8a_eval_cond (get_rf rf) c1) = ok v1'
+  -> value_of_bool (arm_eval_cond (get_rf rf) c1) = ok v1'
   -> value_uincl v1 v1'
   -> sem_sop2 Oand v0 v1 = ok v
   -> exists2 v',
-       value_of_bool (armv8a_eval_cond (get_rf rf) c) = ok v'
+       value_of_bool (arm_eval_cond (get_rf rf) c) = ok v'
        & value_uincl v v'.
 Proof.
   move=> hand hv0' hincl0 hv1' hincl1.
@@ -767,13 +767,13 @@ Qed.
 
 Lemma eval_assemble_cond_Oor rf c c0 c1 v v0 v1 v0' v1' :
   condt_or c0 c1 = Some c
-  -> value_of_bool (armv8a_eval_cond (get_rf rf) c0) = ok v0'
+  -> value_of_bool (arm_eval_cond (get_rf rf) c0) = ok v0'
   -> value_uincl v0 v0'
-  -> value_of_bool (armv8a_eval_cond (get_rf rf) c1) = ok v1'
+  -> value_of_bool (arm_eval_cond (get_rf rf) c1) = ok v1'
   -> value_uincl v1 v1'
   -> sem_sop2 Oor v0 v1 = ok v
   -> exists2 v',
-       value_of_bool (armv8a_eval_cond (get_rf rf) c) = ok v'
+       value_of_bool (arm_eval_cond (get_rf rf) c) = ok v'
        & value_uincl v v'.
 Proof.
   move=> hor hv0' hincl0 hv1' hincl1.
@@ -793,7 +793,7 @@ Qed.
 
 Lemma armv8a_eval_assemble_cond : assemble_cond_spec armv8a_agparams.
 Proof.
-  move=> ii m rr rf e c v; rewrite /armv8a_agparams /armv8a_eval_cond /get_rf /=.
+  move=> ii m rr rf e c v; rewrite /armv8a_agparams /arm_eval_cond /get_rf /=.
   move=> eqr eqf.
   elim: e c v => [| x | op1 e hind | op2 e0 hind0 e1 hind1 |] //= c v.
 

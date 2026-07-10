@@ -128,6 +128,58 @@ Definition string_of_condt (c : condt) : string :=
   end.
 
 (* -------------------------------------------------------------------- *)
+(* Evaluation of the condition codes on the NZCV flags (chapter A7.3 from
+   the ARMv7-M reference manual; section C1.2.4 from the Arm ARM
+   DDI0487). *)
+
+Definition arm_eval_cond (get : rflag -> result error bool) (c : condt) :
+  result error bool :=
+  match c with
+  | EQ_ct =>
+      get ZF
+  | NE_ct =>
+      Let zf := get ZF in ok (~~ zf)
+  | CS_ct =>
+      get CF
+  | CC_ct =>
+      Let cf := get CF in ok (~~ cf)
+  | MI_ct =>
+      get NF
+  | PL_ct =>
+      Let nf := get NF in ok (~~ nf)
+  | VS_ct =>
+      get VF
+  | VC_ct =>
+      Let vf := get VF in ok (~~ vf)
+  | HI_ct =>
+      Let cf := get CF in
+      Let zf := get ZF in
+      ok (cf && ~~ zf)
+  | LS_ct =>
+      Let cf := get CF in
+      Let zf := get ZF in
+      ok (~~ cf || zf)
+  | GE_ct =>
+      Let nf := get NF in
+      Let vf := get VF in
+      ok (nf == vf)
+  | LT_ct =>
+      Let nf := get NF in
+      Let vf := get VF in
+      ok (nf != vf)
+  | GT_ct =>
+      Let zf := get ZF in
+      Let nf := get NF in
+      Let vf := get VF in
+      ok (~~ zf && (nf == vf))
+  | LE_ct =>
+      Let zf := get ZF in
+      Let nf := get NF in
+      Let vf := get VF in
+      ok (zf || (nf != vf))
+  end.
+
+(* -------------------------------------------------------------------- *)
 (* Flag combinations.
    The Arm terminology is different from Intel's (chapter A7.3 from the
    ARMv7-M reference manual; section C1.2.4 from the Arm ARM DDI0487).
