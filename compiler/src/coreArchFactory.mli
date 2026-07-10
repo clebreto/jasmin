@@ -2,7 +2,7 @@ module Core_arch_ARM : Arch_full.Core_arch
   with type reg = Arm_decl.register
    and type regx = Arch_utils.empty
    and type xreg = Arch_utils.empty
-   and type rflag = Arm_decl.rflag
+   and type rflag = Arm_common.rflag
    and type cond = Arm_decl.condt
    and type asm_op = Arm_instr_decl.arm_op
    and type extra_op = Arm_extra.arm_extra_op
@@ -20,7 +20,7 @@ module Core_arch_ARMV8A : Arch_full.Core_arch
   with type reg = Armv8a_decl.register
    and type regx = Arch_utils.empty
    and type xreg = Arch_utils.empty
-   and type rflag = Armv8a_decl.rflag
+   and type rflag = Arm_common.rflag
    and type cond = Armv8a_decl.condt
    and type asm_op = Armv8a_instr_decl.armv8a_asm_op
    and type extra_op = Armv8a_extra.armv8a_extra_op

@@ -2,7 +2,7 @@
 open Arch_decl
 
 module type Armv8a_input = sig
-  val call_conv : (Armv8a_decl.register, Arch_utils.empty, Arch_utils.empty, Armv8a_decl.rflag, Armv8a_decl.condt) calling_convention
+  val call_conv : (Armv8a_decl.register, Arch_utils.empty, Arch_utils.empty, Arm_common.rflag, Armv8a_decl.condt) calling_convention
 end
 
 (* Create arch_toIdent for ARMv8A *)
@@ -22,7 +22,7 @@ module Armv8a (Lowering_params : Armv8a_input) = struct
   type reg = AD.register
   type regx = Arch_utils.empty
   type xreg = Arch_utils.empty
-  type nonrec rflag = AD.rflag
+  type nonrec rflag = Arm_common.rflag
   type cond = AD.condt
   type asm_op = Armv8a_instr_decl.armv8a_asm_op
   type extra_op = Armv8a_extra.armv8a_extra_op

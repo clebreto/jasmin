@@ -22,6 +22,8 @@ Require Import
   arch_decl
   arch_utils.
 
+Require Export arm_common.
+
 (* --------------------------------------------- *)
 Definition armv8a_reg_size  := U64.
 Definition armv8a_xreg_size := U128.
@@ -117,46 +119,8 @@ Instance reg_toS : ToString (lword armv8a_reg_size) register :=
    ; to_string := register_to_string
   |}.
 
-(* -------------------------------------------------------------------- *)
-(* Flags. *)
-
-#[only(eqbOK)] derive
-Variant rflag : Type :=
-| NF    (* Negative condition flag. *)
-| ZF    (* Zero condition flag. *)
-| CF    (* Carry condition flag. *)
-| VF.   (* Overflow condition flag. *)
-
-#[ export ]
-Instance eqTC_rflag : eqTypeC rflag :=
-  { ceqP := rflag_eqb_OK }.
-
-Canonical rflag_eqType := @ceqT_eqType _ eqTC_rflag.
-
-Definition rflags := [:: NF; ZF; CF; VF ].
-
-Lemma rflag_fin_axiom : Finite.axiom rflags.
-Proof. by case. Qed.
-
-#[ export ]
-Instance finTC_rflag : finTypeC rflag :=
-  { cenum := rflags; cenumP := rflag_fin_axiom }.
-
-Canonical rflag_finType := @cfinT_finType _ finTC_rflag.
-
-Definition flag_to_string (f : rflag) : string :=
-  match f with
-  | NF => "NF"
-  | ZF => "ZF"
-  | CF => "CF"
-  | VF => "VF"
-  end.
-
-#[ export ]
-Instance rflag_toS : ToString lbool rflag :=
-  { category  := "rflag"
-  ; to_string := flag_to_string
-  }.
+(* The flags ([rflag]) are shared with the other Arm architectures: see
+   arm_common.v. *)
 
 (* -------------------------------------------------------------------- *)
 (* Conditions.
@@ -279,32 +243,8 @@ Definition shift_of_sop2 (ws : wsize) (op : sop2) : option shift_kind :=
   | _ => None
   end.
 
-(* -------------------------------------------------------------------- *)
-(* Flag combinations.
-   - [CFC_B] is Carry clear (unsigned lower).
-   - [CFC_E] is Equal.
-   - [CFC_L] is Signed less than.
-   - [CFC_BE] is Unsigned lower or same.
-   - [CFC_LE] is Signed less than or equal. *)
-
-Definition armv8a_fc_of_cfc (cfc : combine_flags_core) : flag_combination :=
-  let vnf := FCVar0 in
-  let vzf := FCVar1 in
-  let vcf := FCVar2 in
-  let vvf := FCVar3 in
-  match cfc with
-  | CFC_B => FCNot vcf
-  | CFC_E => vzf
-  | CFC_L => FCNot (FCEq vnf vvf)
-  | CFC_BE => FCOr (FCNot vcf) vzf
-  | CFC_LE => FCOr vzf (FCNot (FCEq vnf vvf))
-  end.
-
-#[global]
-Instance armv8a_fcp : FlagCombinationParams :=
-  {
-    fc_of_cfc := armv8a_fc_of_cfc;
-  }.
+(* The flag combinations ([arm_fcp]) are shared with the other Arm
+   architectures: see arm_common.v. *)
 
 (* -------------------------------------------------------------------- *)
 (* Immediate encodings.
@@ -396,7 +336,7 @@ Instance armv8a_decl : arch_decl register register_ext xregister rflag condt :=
   ; toS_f     := rflag_toS
   ; reg_size_neq_xreg_size := refl_equal
   ; ad_rsp := RSP
-  ; ad_fcp := armv8a_fcp
+  ; ad_fcp := arm_fcp
   ; check_CAimm := armv8a_check_CAimm
   }.
 
