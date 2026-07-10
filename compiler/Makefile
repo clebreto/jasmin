@@ -10,6 +10,7 @@ CHECKCATS ?= \
 	x86-64-Intel \
 	x86-64-nolea \
 	arm-m4 \
+	armv8a \
 	risc-v \
 	x86-64-stack-zero-loop \
 	x86-64-stack-zero-unrolled \
@@ -17,7 +18,6 @@ CHECKCATS ?= \
 	arm-m4-stack-zero-unrolled \
 	risc-v-stack-zero-loop \
 	risc-v-stack-zero-unrolled \
-	armv8a \
 	CCT CCT-DOIT SCT
 
 # --------------------------------------------------------------------
