@@ -106,6 +106,21 @@ module StackAlloc (Arch: Arch_full.Arch) = struct
 
 module Regalloc = Regalloc (Arch)
 
+(* Keep the stack pointer [Arch.sp_min_align]-aligned across calls (16 bytes
+   on AArch64: SP alignment checking, Arm ARM DDI0487M.a, D1.4.10.2): frame
+   sizes are rounded up to the frame alignment
+   ([stack_frame_allocation_size]), so raise the alignment of every function
+   that actually uses the stack. Functions with no stack footprint at all
+   keep their alignment (an export function may only use SavedStackNone when
+   its alignment is U8). *)
+let enforce_sp_min_align ~stack_size ~extra_size ~max_stk align =
+  if Z.equal max_stk Z.zero
+     && Z.equal stack_size Z.zero
+     && extra_size = 0
+  then align
+  else if wsize_lt align Arch.sp_min_align then Arch.sp_min_align
+  else align
+
 let memory_analysis pp_sr pp_err ~debug up =
   if debug then Format.eprintf "START memory analysis@.";
   let p = Conv.prog_of_cuprog up in
@@ -286,20 +301,10 @@ let memory_analysis pp_sr pp_err ~debug up =
           align, max_stk, max_call_depth
         ) sao.sao_calls (align, Z.zero, Z.zero) in
 
-    (* Keep the stack pointer [Arch.sp_min_align]-aligned across calls (16
-       bytes on AArch64: SP alignment checking, Arm ARM DDI0487M.a,
-       D1.4.10.2): frame sizes are rounded up to the frame alignment
-       ([stack_frame_allocation_size]), so raise the alignment of every
-       function that actually uses the stack. Functions with no stack
-       footprint at all keep their alignment (an export function may only
-       use SavedStackNone when its alignment is U8). *)
     let align =
-      if Z.equal max_stk Z.zero
-         && Z.equal (Conv.z_of_cz csao.Stack_alloc.sao_size) Z.zero
-         && extra_size = 0
-      then align
-      else if wsize_lt align Arch.sp_min_align then Arch.sp_min_align
-      else align
+      enforce_sp_min_align
+        ~stack_size:(Conv.z_of_cz csao.Stack_alloc.sao_size)
+        ~extra_size ~max_stk align
     in
 
     (* if we zeroize the stack, we ensure that the max size is a multiple of the
@@ -382,20 +387,10 @@ let memory_analysis pp_sr pp_err ~debug up =
           align, max_stk, max_call_depth
         ) sao.sao_calls (align, Z.zero, Z.zero) in
 
-    (* Keep the stack pointer [Arch.sp_min_align]-aligned across calls (16
-       bytes on AArch64: SP alignment checking, Arm ARM DDI0487M.a,
-       D1.4.10.2): frame sizes are rounded up to the frame alignment
-       ([stack_frame_allocation_size]), so raise the alignment of every
-       function that actually uses the stack. Functions with no stack
-       footprint at all keep their alignment (an export function may only
-       use SavedStackNone when its alignment is U8). *)
     let align =
-      if Z.equal max_stk Z.zero
-         && Z.equal (Conv.z_of_cz csao.Stack_alloc.sao_size) Z.zero
-         && extra_size = 0
-      then align
-      else if wsize_lt align Arch.sp_min_align then Arch.sp_min_align
-      else align
+      enforce_sp_min_align
+        ~stack_size:(Conv.z_of_cz csao.Stack_alloc.sao_size)
+        ~extra_size ~max_stk align
     in
     (* if we zeroize the stack, we may have to increase the alignment *)
     let align =
