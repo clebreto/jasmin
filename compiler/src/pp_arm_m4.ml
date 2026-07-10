@@ -199,7 +199,7 @@ type reg = Arm_decl.register
 and type regx = Arch_utils.empty
 and type xreg = Arch_utils.empty
 and type rflag = Arm_common.rflag
-and type cond = Arm_decl.condt
+and type cond = Arm_common.condt
 and type asm_op = arm_op
 = struct
 
@@ -207,7 +207,7 @@ and type asm_op = arm_op
   type regx = Arch_utils.empty
   type xreg = Arch_utils.empty
   type rflag = Arm_common.rflag
-  type cond = Arm_decl.condt
+  type cond = Arm_common.condt
   type asm_op = arm_op
 
   let headers = [ Instr (".thumb", []); Instr (".syntax unified", []) ]

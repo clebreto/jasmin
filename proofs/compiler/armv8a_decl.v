@@ -119,71 +119,8 @@ Instance reg_toS : ToString (lword armv8a_reg_size) register :=
    ; to_string := register_to_string
   |}.
 
-(* The flags ([rflag]) are shared with the other Arm architectures: see
-   arm_common.v. *)
-
-(* -------------------------------------------------------------------- *)
-(* Conditions.
-   Condition codes for conditional instructions (ARM ARM DDI0487 M.a,
-   section C1.2.4 "Condition code"). *)
-
-#[only(eqbOK)] derive
-Variant condt : Type :=
-| EQ_ct    (* Equal (Z == 1). *)
-| NE_ct    (* Not equal (Z == 0). *)
-| CS_ct    (* Carry set, unsigned higher or same (C == 1). *)
-| CC_ct    (* Carry clear, unsigned lower (C == 0). *)
-| MI_ct    (* Minus, negative (N == 1). *)
-| PL_ct    (* Plus, positive or zero (N == 0). *)
-| VS_ct    (* Overflow (V == 1). *)
-| VC_ct    (* No overflow (V == 0). *)
-| HI_ct    (* Unsigned higher (C == 1 && Z == 0). *)
-| LS_ct    (* Unsigned lower or same (C == 0 || Z == 1). *)
-| GE_ct    (* Signed greater than or equal (N == V). *)
-| LT_ct    (* Signed less than (N != V). *)
-| GT_ct    (* Signed greater than (Z == 0 && N == V). *)
-| LE_ct.   (* Signed less than or equal (Z == 1 || N != V). *)
-
-#[ export ]
-Instance eqTC_condt : eqTypeC condt :=
-  { ceqP := condt_eqb_OK }.
-
-Canonical condt_eqType := @ceqT_eqType _ eqTC_condt.
-
-Definition condts : seq condt :=
-  [:: EQ_ct; NE_ct; CS_ct; CC_ct; MI_ct; PL_ct; VS_ct; VC_ct; HI_ct; LS_ct
-    ; GE_ct; LT_ct; GT_ct; LE_ct
-  ].
-
-Lemma condt_fin_axiom : Finite.axiom condts.
-Proof. by case. Qed.
-
-#[ export ]
-Instance finTC_condt : finTypeC condt :=
-  {
-    cenum := condts;
-    cenumP := condt_fin_axiom;
-  }.
-
-Canonical condt_finType := @cfinT_finType _ finTC_condt.
-
-Definition string_of_condt (c : condt) : string :=
-  match c with
-  | EQ_ct => "eq"
-  | NE_ct => "ne"
-  | CS_ct => "cs"
-  | CC_ct => "cc"
-  | MI_ct => "mi"
-  | PL_ct => "pl"
-  | VS_ct => "vs"
-  | VC_ct => "vc"
-  | HI_ct => "hi"
-  | LS_ct => "ls"
-  | GE_ct => "ge"
-  | LT_ct => "lt"
-  | GT_ct => "gt"
-  | LE_ct => "le"
-  end.
+(* The flags ([rflag]) and conditions ([condt]) are shared with the other
+   Arm architectures: see arm_common.v. *)
 
 (* -------------------------------------------------------------------- *)
 (* Register shifts.
