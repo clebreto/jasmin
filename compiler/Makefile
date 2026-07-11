@@ -36,7 +36,7 @@ DISTDIR ?= jasmin-compiler
 OBELISK ?= obelisk
 
 # --------------------------------------------------------------------
-.PHONY: all CIL check check-ci
+.PHONY: all CIL check check-ci check-armv8a-semantics
 .PHONY: clean install uninstall dist
 
 all:
@@ -58,6 +58,12 @@ check-ci:
 check-ec:
 	$(MAKE) -C examples/gimli/proofs
 	$(MAKE) -C examples/extraction-unit-tests
+
+# Differential test of the ARMv8-A instruction semantics (the Coq model of
+# armv8a_instr_decl.v, evaluated through its OCaml extraction) against real
+# hardware execution. Requires an AArch64 (ARMv8-A) host.
+check-armv8a-semantics:
+	$(MAKE) -C tests/armv8a-hw-semantics check
 
 check-all: check
 	dune runtest -f
