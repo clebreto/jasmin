@@ -232,7 +232,7 @@ Lemma lower_condition_Papp2P vi s op e0 e1 mn ws e es v0 v1 v :
         , sem_pexprs true (p_globs p) s es = ok [:: Vword w0; Vword w1 ]
         & sem_pexpr true (p_globs p) (estate_of_condition_mn mn s w0' w1') e = ok v
       ].
-Proof.
+Proof using atoI fv fv_correct p pT sc_sem syscall_state wsw.
   move=> h hseme0 hseme1 hsemop.
   move: h; rewrite /lower_condition_Papp2.
   apply: obindP => -[cf ws'] hcf /chk_ws_regP [hws h].
@@ -334,7 +334,7 @@ Lemma sem_lower_condition_pexpr vi tag s0 s0' ii e v lvs aop es c :
          , eq_fv s0 s1'
          & sem_pexpr true (p_globs p) s1' c = ok v
        ].
-Proof.
+Proof using atoI ev fv fv_correct p pT sCP sc_sem syscall_state warning wsw.
   apply: obindP => -[[op e0] e1] /is_Papp2P ?; subst.
   apply: obindP => -[[[mn ws] e] es'] h [????]; subst.
 
@@ -370,7 +370,7 @@ Lemma sem_lower_condition vi s0 s0' ii e v pre e' :
          , eq_fv s0 s1'
          & sem_pexpr true (p_globs p) s1' e' = ok v
        ].
-Proof.
+Proof using atoI ev fv fv_correct p pT sCP sc_sem syscall_state warning wsw.
   move=> h hs00 hfv hseme.
 
   move: h.
