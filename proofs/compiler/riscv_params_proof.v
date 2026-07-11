@@ -16,7 +16,7 @@ Require Import
 Require Import
   lea_proof
   linearization
-  linearization_proof
+  it_linearization_proof
   lowering
   stack_alloc_params_proof
   stack_zeroization_proof.
@@ -188,7 +188,7 @@ Proof.
     by eexists.
   rewrite /= hget /=; t_riscv_op.
   eexists; split; first reflexivity.
-  + by move=> z hz; rewrite Vm.setP_neq //; apply /eqP; SvD.fsetdec.
+  + by move=> z hz; rewrite Vm.setP_neq //; apply /eqP; clear -hz; SvD.fsetdec.
   by rewrite Vm.setP_eq /= wrepr_opp.
 Qed.
 
@@ -205,7 +205,7 @@ Proof.
     by eexists.
   rewrite /= hget /=; t_riscv_op.
   eexists; split; first reflexivity.
-  + by move=> z hz; rewrite Vm.setP_neq //; apply /eqP; SvD.fsetdec.
+  + by move=> z hz; rewrite Vm.setP_neq //; apply /eqP; clear -hz; SvD.fsetdec.
   by rewrite Vm.setP_eq vm_truncate_val_eq.
 Qed.
 
@@ -344,7 +344,7 @@ Proof. exists X29; exact: to_identK. Qed.
 (* Lowering hypotheses. *)
 
 Definition riscv_hloparams : h_lowering_params (ap_lop riscv_params).
-Proof. split=> *; [exact: lower_callP | exact: it_lower_callP]. Qed.
+Proof. split=> *; exact: it_lower_callP. Qed.
 
 (* ------------------------------------------------------------------------ *)
 (* Lowering of complex addressing mode for RISC-V *)
@@ -354,7 +354,6 @@ Proof.
   split=> /=.
   + exact: (lower_addressing_prog_invariants (pT:=progStack)).
   + exact: (lower_addressing_fd_invariants (pT:=progStack)).
-  + exact: (lower_addressing_progP (pT:=progStack)).
   by move=> > /(it_lower_addressing_progP (pT := progStack)).
 Qed.
 

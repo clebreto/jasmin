@@ -258,9 +258,9 @@ Definition armv8a_fvars_correct
   bool :=
   fvars_correct (all_fresh_vars fv) (fvars fv) fds.
 
-Definition armv8a_loparams : lowering_params lowering_options :=
+Definition armv8a_loparams : lowering_params :=
   {|
-    lop_lower_i _ _ := lower_i;
+    lop_lower_i _ := lower_i;
     lop_fvars_correct := armv8a_fvars_correct;
   |}.
 
@@ -397,7 +397,7 @@ Definition armv8a_is_move_op (o : asm_op_t) : bool :=
       false
   end.
 
-Definition armv8a_params : architecture_params lowering_options :=
+Definition armv8a_params : architecture_params :=
   {|
     ap_sap := armv8a_saparams;
     ap_lip := armv8a_liparams;

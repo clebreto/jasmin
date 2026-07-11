@@ -101,15 +101,15 @@ apply: (cmd_rect (Pr := Pr) (Pi := Pi) (Pc := Pc)) => /=
   [ i0 ii Hi | | i0 c0 Hi Hc | x t ty e | xs t o es | xs o es | a | e c1 c2 Hc1 Hc2
     | v dir lo hi c0 Hc | a c0 e ei c' Hc Hc' | ii xs f es ] c /=.
 + by apply Hi.
-+ rewrite CallsE; SfD.fsetdec.
-+ rewrite CallsE Hc Hi; SfD.fsetdec.
-1-4: SfD.fsetdec.
++ rewrite CallsE; clear; SfD.fsetdec.
++ rewrite CallsE Hc Hi; clear; SfD.fsetdec.
+1-4: clear; SfD.fsetdec.
 + rewrite /i_calls_r  -/(foldl _ _) -/(foldl _ _) -/(c_calls _ _) -/(c_calls _ _)
-    Hc2 Hc1 -/(c_Calls _) -/(c_Calls _); SfD.fsetdec.
+    Hc2 Hc1 -/(c_Calls _) -/(c_Calls _); clear; SfD.fsetdec.
 + by apply Hc.
 + rewrite /i_calls_r  -/(foldl _ _) -/(foldl _ _) -/(c_calls _ _) -/(c_calls _ _)
-    Hc' Hc -/(c_Calls _) -/(c_Calls _); SfD.fsetdec.
-rewrite /i_calls_r; SfD.fsetdec.
+    Hc' Hc -/(c_Calls _) -/(c_Calls _); clear; SfD.fsetdec.
+rewrite /i_calls_r; clear; SfD.fsetdec.
 Qed.
 
 End CALLS.
@@ -126,7 +126,7 @@ Proof.
   rewrite <- le.
   case: Sf.mem. 2: auto.
   apply: ih.
-  rewrite ! c_callsE. SfD.fsetdec.
+  rewrite ! c_callsE. clear -le; SfD.fsetdec.
 Qed.
 
 #[local]
@@ -135,19 +135,19 @@ Proof.
   move=> x y le p p' <- {p'}.
   elim: p x y le => // [[n d] p] ih x y le /=.
   case hm: Sf.mem. apply Sf.mem_spec in hm.
-  rewrite (SfD.F.mem_1 (le _ hm)). apply: ih. rewrite ! c_callsE. SfD.fsetdec.
-  case: Sf.mem. apply: ih. rewrite c_callsE. SfD.fsetdec.
+  rewrite (SfD.F.mem_1 (le _ hm)). apply: ih. rewrite ! c_callsE. clear -le; SfD.fsetdec.
+  case: Sf.mem. apply: ih. rewrite c_callsE. clear -le; SfD.fsetdec.
   auto.
 Qed.
 
 Lemma live_calls_subset c p :
   Sf.Subset c (live_calls c p).
 Proof.
-  elim: p c => /=. SfD.fsetdec.
+  elim: p c => /=. clear; SfD.fsetdec.
   move=> [n d] p ih c.
   case: Sf.mem => //.
   etransitivity. 2: apply: ih.
-  rewrite c_callsE. SfD.fsetdec.
+  rewrite c_callsE. clear; SfD.fsetdec.
 Qed.
 
 Lemma live_calls_in K p fn fd :
@@ -159,12 +159,12 @@ Proof.
   case: eqP.
   - move <- => {n} /Some_inj ->.
     rewrite (SfD.F.mem_1 hn) c_callsE.
-    etransitivity. 2: apply: live_calls_subset. SfD.fsetdec.
+    etransitivity. 2: apply: live_calls_subset. clear; SfD.fsetdec.
   - move => ne rec. specialize (ih _ _ _ hn rec).
     case hm: Sf.mem => //.
     etransitivity. exact: ih.
     apply: live_calls_mono => //.
-    rewrite c_callsE. SfD.fsetdec.
+    rewrite c_callsE. clear; SfD.fsetdec.
 Qed.
 
 (* -------------------------------------------------------------------- *)
@@ -193,159 +193,8 @@ Section PROOF.
   Lemma def_incl_union a b :
     def_incl (Sf.union a b) → def_incl a ∧ def_incl b.
   Proof.
-    rewrite /def_incl; intuition SfD.fsetdec.
+    by rewrite /def_incl => h; split; clear -h; SfD.fsetdec.
   Qed.
-
-  Section SEM.
-
-  Let Pi s (i:instr) s' :=
-    def_incl (i_Calls i) -> sem_I p' ev s i s'.
-
-  Let Pi_r s (i:instr_r) s' :=
-    def_incl (i_Calls_r i) -> sem_i p' ev s i s'.
-
-  Let Pc s (c:cmd) s' :=
-    def_incl (c_Calls c) -> sem p' ev s c s'.
-
-  Let Pfor (i:var_i) vs s c s' :=
-    def_incl (c_Calls c) -> sem_for p' ev i vs s c s'.
-
-  Let Pfun scs1 m1 fn vargs scs2 m2 vres :=
-    def_incl (Sf.singleton fn) -> sem_call p' ev scs1 m1 fn vargs scs2 m2 vres.
-
-  Local Lemma Hskip : sem_Ind_nil Pc.
-  Proof. move=> s _; exact: Eskip. Qed.
-
-  Local Lemma Hcons : sem_Ind_cons p ev Pc Pi.
-  Proof.
-    move=> s1 s2 s3 i c Hsi Hi Hsc Hc Hincl.
-    rewrite CallsE in Hincl.
-    move: Hincl=> /def_incl_union [Hincli Hinclc].
-    exact: (Eseq (Hi Hincli) (Hc Hinclc)).
-  Qed.
-
-  Local Lemma HmkI : sem_Ind_mkI p ev Pi_r Pi.
-  Proof.
-    move=> ii i s1 s2 Hs Hi Hincl.
-    apply: EmkI.
-    exact: (Hi Hincl).
-  Qed.
-
-  Local Lemma Hassgn : sem_Ind_assgn p Pi_r.
-  Proof.
-    move => s1 s2 x tag ty e v v' hv hv' hw _.
-    by apply: Eassgn;eauto.
-  Qed.
-
-  Local Lemma Hopn : sem_Ind_opn p Pi_r.
-  Proof.
-    move=> s1 s2 t o xs es H _; by apply: Eopn; eauto.
-  Qed.
-
-  Local Lemma Hsyscall : sem_Ind_syscall p Pi_r.
-  Proof.
-    move=> s1 scs m s2 o xs es ves vs he ho hw H.
-    by apply: Esyscall; eauto.
-  Qed.
-
-  Local Lemma Hif_true : sem_Ind_if_true p ev Pc Pi_r.
-  Proof.
-    move=> s1 s2 e c1 c2 H Hsi Hc Hincl.
-    rewrite CallsE in Hincl.
-    move: Hincl=> /def_incl_union [Hincl1 Hincl2].
-    apply: (Eif_true (P:=p') _ H).
-    exact: (Hc Hincl1).
-  Qed.
-
-  Local Lemma Hif_false : sem_Ind_if_false p ev Pc Pi_r.
-  Proof.
-    move=> s1 s2 e c1 c2 H Hsi Hc Hincl.
-    rewrite CallsE in Hincl.
-    move: Hincl=> /def_incl_union [Hincl1 Hincl2].
-    apply: (Eif_false (P:=p') _ H).
-    exact: (Hc Hincl2).
-  Qed.
-
-  Local Lemma Hwhile_true : sem_Ind_while_true p ev Pc Pi_r.
-  Proof.
-    move=> s1 s2 s3 s4 a c e ei c' Hs1 Hc1 H Hs2 Hc2 Hsw Hiw Hinclw.
-    rewrite CallsE in Hinclw.
-    have /def_incl_union [Hincl Hincl'] := Hinclw.
-    exact: (Ewhile_true (Hc1 Hincl) H (Hc2 Hincl') (Hiw Hinclw)).
-  Qed.
-
-  Local Lemma Hwhile_false : sem_Ind_while_false p ev Pc Pi_r.
-  Proof.
-    move=> s1 s2 a c e ei c' Hs1 Hc1 H Hinclw.
-    rewrite CallsE in Hinclw.
-    have /def_incl_union [Hincl Hincl'] := Hinclw.
-    exact: (Ewhile_false _ _ _ (Hc1 Hincl) H).
-  Qed.
-
-  Local Lemma Hfor : sem_Ind_for p ev Pi_r Pfor.
-  Proof.
-    move=> s1 s2 i d lo hi c vlo vhi Hlo Hhi Hsf Hf Hincl.
-    rewrite CallsE in Hincl.
-    apply: (Efor (P:= p') Hlo Hhi).
-    exact: (Hf Hincl).
-  Qed.
-
-  Local Lemma Hfor_nil : sem_Ind_for_nil Pfor.
-  Proof.
-    move=> s i c Hincl; exact: EForDone.
-  Qed.
-
-  Local Lemma Hfor_cons : sem_Ind_for_cons p ev Pc Pfor.
-  Proof.
-    move=> s1 s1' s2 s3 i w ws c H Hsc Hc Hsf Hf Hincl.
-    exact: (EForOne H (Hc Hincl) (Hf Hincl)).
-  Qed.
-
-  Local Lemma Hcall : sem_Ind_call p ev Pi_r Pfun.
-  Proof.
-    move=> s1 scs2 m2 s2 xs fn args vargs vs Hargs Hcall Hfun Hres Hincl.
-    econstructor; eauto.
-  Qed.
-
-  Local Lemma Hproc : sem_Ind_proc p ev Pc Pfun.
-  Proof.
-    move=> scs1 m1 scs2 m2 fn fd vargs vargs' s0 s1 s2 vres vres'
-           Hget Htyin Hi Hvargs Hsem Hc Hvres Htyout Hscs Hfi Hin.
-    have Hin' := Hin _ (SfD.F.singleton_2 erefl).
-    have Hfd := get_dead_calls Hin' Hget.
-    refine (EcallRun (P:=p') Hfd Htyin Hi Hvargs _ Hvres Htyout Hscs Hfi).
-    apply: Hc=> // n hn; apply: pfxp.
-    by apply: live_calls_in Hget n hn.
-  Qed.
-
-  Lemma dead_calls_callP fd scs mem scs' mem' va vr :
-    Sf.In fd K ->
-    sem_call p ev scs mem fd va scs' mem' vr ->
-    sem_call p' ev scs mem fd va scs' mem' vr.
-  Proof.
-    move=> Hincl H.
-    apply:
-      (sem_call_Ind
-         Hskip
-         Hcons
-         HmkI
-         Hassgn
-         Hopn
-         Hsyscall
-         Hif_true
-         Hif_false
-         Hwhile_true
-         Hwhile_false
-         Hfor
-         Hfor_nil
-         Hfor_cons
-         Hcall
-         Hproc)
-      => //.
-    move => ??; SfD.fsetdec.
-  Qed.
-
-  End SEM.
 
   Section IT.
 
@@ -374,7 +223,7 @@ Section PROOF.
 
   Lemma it_dead_calls_callP fn :
     wiequiv_f p p' ev ev (rpreF (eS:= dc_spec)) fn fn (rpostF (eS:=dc_spec)).
-  Proof.
+  Proof using pfxp.
     apply wequiv_fun_ind => {}fn _ fs _ [<- <- hin] fd hfd; exists fd => //.
     + by apply get_dead_calls.
     move=> s hinit.
@@ -414,7 +263,7 @@ Lemma foldl_compat x y l (x_eq_y: Sf.Equal x y):
            (foldl (fun f c => Sf.add c f) y l).
 Proof.
 elim: l x y x_eq_y=> // a l IH /= x y x_eq_y.
-by apply: IH; SfD.fsetdec.
+by apply: IH; clear -x_eq_y; SfD.fsetdec.
 Qed.
 
 Lemma foldlE a l x:
@@ -425,34 +274,10 @@ elim: l a x=> // a0 l IH a x.
 rewrite /= in IH.
 rewrite /=.
 rewrite -IH.
-apply: foldl_compat; SfD.fsetdec.
+apply: foldl_compat; clear; SfD.fsetdec.
 Qed.
 
 (* -------------------------------------------------------------------- *)
-
-Lemma dead_calls_errP (s : Sf.t) (p p': prog) :
-  dead_calls_err s p = ok p' →
-  ∀ f ev scs m args scs' m' res, Sf.In f s →
-    sem_call p ev scs m f args scs' m' res →
-    sem_call p' ev scs m f args scs' m' res.
-Proof.
-rewrite /dead_calls_err; case: ifP => // /SfD.F.subset_2 pfx [] <- f ev scs m args scs' m' res fins Hcall.
-apply: dead_calls_callP=> //.
-apply: live_calls_subset fins.
-Qed.
-
-Theorem dead_calls_err_seqP (s : seq funname) (p p': prog) :
-  dead_calls_err_seq s p = ok p' →
-  ∀ f ev scs m args scs' m' res, f \in s →
-    sem_call p ev scs m f args scs' m' res →
-    sem_call p' ev scs m f args scs' m' res.
-Proof.
-  rewrite /dead_calls_err_seq.
-  move=> h f ev scs m args scs' m' res fins; apply: (dead_calls_errP h).
-  elim: {h} s fins=> // a l IH Hin.
-  rewrite foldlE.
-  rewrite in_cons in Hin; case/orP: Hin=> [/eqP ->|/IH Hin]; SfD.fsetdec.
-Qed.
 
 Section IT.
 

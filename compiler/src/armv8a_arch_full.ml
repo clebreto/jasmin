@@ -26,7 +26,6 @@ module Armv8a (Lowering_params : Armv8a_input) = struct
   type cond = Arm_common.condt
   type asm_op = Armv8a_instr_decl.armv8a_asm_op
   type extra_op = Armv8a_extra.armv8a_extra_op
-  type lowering_options = unit
 
   let atoI = atoI AD.armv8a_decl
 
@@ -130,8 +129,6 @@ module Armv8a (Lowering_params : Armv8a_input) = struct
     | Armv8a_extra.Oarmv8a_swap _ -> true
     | Armv8a_extra.Oarmv8a_add_large_imm -> true
     | Armv8a_extra.Oarmv8a_smart_li _ -> true
-
-  let lowering_opt = ()
 
   let not_saved_stack = []
 

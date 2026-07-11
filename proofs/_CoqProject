@@ -2,6 +2,7 @@
 -arg "-set" -arg "'Implicit Arguments'"
 -arg "-unset" -arg "'Strict Implicit'"
 -arg "-unset" -arg "'Printing Implicit Defensive'"
+-arg "-set" -arg "'Default Proof Using='"
 -arg "-w -notation-overridden"
 -arg "-w -extraction-reserved-identifier"
 -arg "-w -extraction-opaque-accessed"
@@ -86,7 +87,6 @@ compiler/array_init.v
 compiler/array_init_proof.v
 compiler/compiler_util.v
 compiler/compiler.v
-compiler/compiler_proof.v
 compiler/constant_prop.v
 compiler/constant_prop_proof.v
 compiler/dead_calls.v
@@ -108,7 +108,6 @@ compiler/lea.v
 compiler/lea_proof.v
 compiler/linear_util.v
 compiler/linearization.v
-compiler/linearization_proof.v
 compiler/load_constants_in_cond.v
 compiler/load_constants_in_cond_proof.v
 compiler/lowering.v
@@ -117,7 +116,6 @@ compiler/lower_spill_proof.v
 compiler/makeReferenceArguments.v
 compiler/makeReferenceArguments_proof.v
 compiler/merge_varmaps.v
-compiler/merge_varmaps_proof.v
 compiler/post_unrolling_check.v
 compiler/propagate_inline.v
 compiler/propagate_inline_proof.v
@@ -151,7 +149,6 @@ compiler/stack_alloc_proof_2.v
 compiler/stack_zeroization.v
 compiler/stack_zeroization_proof.v
 compiler/tunneling.v
-compiler/tunneling_proof.v
 compiler/unionfind.v
 compiler/unionfind_proof.v
 compiler/unrolling.v
