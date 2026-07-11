@@ -79,7 +79,9 @@ Definition store_zero (off : fexpr) : linstr_r :=
   if store_mn_of_wsize ws is Some mn
     then
       let current := Store Aligned ws (faddv Uptr vrsp off) in
-      let op := ARMv8A_op mn default_opts in
+      (* A 32-bit clear step needs the W form of STR; the narrow stores
+         (STRB, STRH) store the low bits of the X register. *)
+      let op := ARMv8A_op mn (opts_at (match ws with U32 => U32 | _ => U64 end)) in
       Lopn [:: current ] (Oarmv8a op) [:: rvar vzero ]
     else Lalign. (* Absurd case. *)
 
