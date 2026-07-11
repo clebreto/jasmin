@@ -173,7 +173,7 @@ Qed.
 Lemma label_in_lcmdP rspn fn lfd lfd' :
   stack_zeroization_lfd rspn fn lfd = ok lfd' ->
   label_in_lcmd lfd'.(lfd_body) = label_in_lcmd lfd.(lfd_body).
-Proof.
+Proof using hszparams.
   rewrite /stack_zeroization_lfd.
   case: szs_of_fn => [[??]|]; last by move=> [<-].
   case: andb; last by move=> [<-].
@@ -186,28 +186,12 @@ Qed.
 Lemma label_in_lprogP lp lp' :
   stack_zeroization_lprog lp = ok lp' ->
   label_in_lprog lp' = label_in_lprog lp.
-Proof.
+Proof using hszparams.
   rewrite /stack_zeroization_lprog /label_in_lprog.
   t_xrbindP=> lp_funcs' hmap <- /=.
   elim: lp.(lp_funcs) lp_funcs' hmap => [|[fn fd] lp_funcs ih] /=.
   + by move=> _ [<-] /=.
   by t_xrbindP=> _ _ fd' /label_in_lcmdP <- <- lp_funcs' /ih <- <- /=.
-Qed.
-
-Lemma get_label_after_pc_in_label_in_lprog lp s lbl :
-  get_label_after_pc lp s = ok lbl ->
-  (s.(lfn), lbl) \in label_in_lprog lp.
-Proof.
-  rewrite /get_label_after_pc /find_instr /=.
-  case hget: get_fundef => [lfd|//].
-  case hnth: oseq.onth => [i|//].
-  case: i hnth => ii []//= []// lbl' hnth [?]; subst lbl'.
-  have hlinear: is_linear_of lp s.(lfn) lfd.(lfd_body).
-  + by exists lfd.
-  apply: label_in_lfundef hlinear.
-  have [cmd1 [cmd2 ->]] := List.in_split _ _ (onth_In hnth).
-  rewrite label_in_lcmd_cat /= mem_cat.
-  by apply /orP; right; apply mem_head.
 Qed.
 
 Lemma find_labelP rspn fn lfd lfd' lbl pc :
@@ -242,7 +226,7 @@ Lemma eval_instrP lp lp' i s1 s2 :
   stack_zeroization_lprog lp = ok lp' ->
   eval_instr lp i s1 = ok s2 ->
   eval_instr lp' i s1 = ok s2.
-Proof.
+Proof using hszparams.
   move=> hzerolp.
   rewrite /eval_instr.
   case: i => [ii []] //=.
@@ -288,11 +272,11 @@ Qed.
 
 Lemma stack_zeroization_lprog_lsem1 lp lp' s1 s2 :
   stack_zeroization_lprog lp = ok lp' ->
-  lsem1 lp s1 s2 ->
-  lsem1 lp' s1 s2.
-Proof.
+  step lp s1 = ok s2 ->
+  step lp' s1 = ok s2.
+Proof using hszparams.
   move=> hzerolp.
-  rewrite /lsem1 /step /find_instr.
+  rewrite /step /find_instr.
   case hlfd: get_fundef => [lfd|//] /=.
   have [lfd' hzero ->] /= := stack_zeroization_lprog_get_fundef hzerolp hlfd.
   case hpc: oseq.onth => [i|//].
@@ -306,19 +290,6 @@ Proof.
     by apply onth_cat_l.
   rewrite hpc'.
   by apply eval_instrP.
-Qed.
-
-Lemma stack_zeroization_lprog_lsem lp lp' s1 s2 :
-  stack_zeroization_lprog lp = ok lp' ->
-  lsem lp s1 s2 ->
-  lsem lp' s1 s2.
-Proof.
-  move=> hzerolp.
-  move: s1 s2; apply lsem_ind.
-  + by move=> s; apply Relation_Operators.rt_refl.
-  move=> s1 s2 s3 hsem1 ih hsem'.
-  apply: lsem_step hsem'.
-  by apply (stack_zeroization_lprog_lsem1 hzerolp).
 Qed.
 
 Record match_mem_zero (m m': mem) (bottom : pointer) stk_max : Prop :=
@@ -335,79 +306,6 @@ Definition match_mem_zero_export (m m' : mem) top stk_max (szs : option (stack_z
   | Some _ => match_mem_zero m m' top stk_max
   | None => m = m'
   end.
-
-Lemma stack_zeroization_lprogP lp lp' scs m fn vm scs' m' vm' ptr lfd :
-  stack_zeroization_lprog lp = ok lp' ->
-  lsem_exportcall lp scs m fn vm scs' m' vm' ->
-  vm'.[vid (lp_rsp lp')] = @Vword Uptr ptr ->
-  get_fundef lp.(lp_funcs) fn = Some lfd ->
-  (lfd.(lfd_stk_max) + wsize_size lfd.(lfd_align) - 1 <= wunsigned ptr)%Z ->
-  let bottom := (align_word lfd.(lfd_align) ptr - wrepr _ lfd.(lfd_stk_max))%R in
-  valid_between m bottom (lfd_stk_max lfd) ->
-  exists m'' vm'', [/\
-    lsem_exportcall lp' scs m fn vm scs' m'' vm'',
-    vm' =[sv_of_list v_var lfd.(lfd_res)] vm'' &
-    match_mem_zero_export m' m'' bottom lfd.(lfd_stk_max) (szs_of_fn fn)
-  ].
-Proof.
-  move=> hzerolp [] {}lfd /[dup] hlfd -> hexport hsem heqvm hrsp [<-] enough_stk /= hvalid.
-  have [lfd' hzero hlfd'] := stack_zeroization_lprog_get_fundef hzerolp hlfd.
-  move: hzero; rewrite /stack_zeroization_lfd.
-  rewrite /match_mem_zero_export.
-  case: szs_of_fn => [[szs ws]|]; last first.
-  + move=> [?]; subst lfd'.
-    exists m', vm'.
-    split=> //.
-    econstructor; eauto.
-    by apply (stack_zeroization_lprog_lsem hzerolp).
-
-  rewrite hexport /=.
-  case: ZltP => [hlt|hnlt]; last first.
-  + move=> [?]; subst lfd'.
-    exists m', vm'.
-    split=> //.
-    + econstructor; eauto.
-      by apply (stack_zeroization_lprog_lsem hzerolp).
-    split=> //.
-    move=> p.
-    rewrite /between (negbTE (not_zbetween_neg _ _ _ _)) //.
-    by Lia.lia.
-
-  rewrite /stack_zeroization_lfd_body.
-  t_xrbindP=> halign1 halign2 hle [cmd vars] hcmd.
-  t_xrbindP=> /Sv_memP rsp_nin hdisj hmap.
-  have hbody: lfd_body lfd' = lfd_body lfd ++ cmd by rewrite -hmap.
-  have enough_stk': (lfd.(lfd_stk_max) <= wunsigned (align_word lfd.(lfd_align) ptr))%Z.
-  + by have := align_word_range (lfd_align lfd) ptr; Lia.lia.
-  move: hrsp.
-  have [_ <- _] := (stack_zeroization_lprog_invariants hzerolp).
-  move=> hrsp.
-  have hvalid':
-    let: n := lfd_stk_max lfd in
-    let: p := (align_word (lfd_align lfd) ptr - wrepr Uptr n)%R in
-    valid_between m' p n.
-  + move=> p hb.
-    have [_ /= <-] := lsem_mem_equiv hsem.
-    by apply hvalid.
-
-  have hlin : is_linear_of lp' fn (lfd_body lfd ++ cmd).
-  + by rewrite /is_linear_of; eauto.
-  have [m'' [vm'' [hsem' heqvm' hvalid'' hzero huntouched]]] :=
-    hszp_cmdP
-      hszparams hcmd rsp_nin hlt halign2 hle (next_lfd_lblP (lfd := lfd)) hlin
-      (ls := {| lscs := scs'; |}) erefl erefl enough_stk' hrsp hvalid'.
-  exists m'', vm''; split=> //.
-  + econstructor; eauto.
-    + by rewrite -hmap.
-    + apply: (lsem_trans (stack_zeroization_lprog_lsem hzerolp hsem)).
-      rewrite /ls_export_final hbody size_cat.
-      by apply: lsem_n_lsem hsem'.
-    apply (eq_onT heqvm).
-    apply (eq_ex_disjoint_eq_on heqvm').
-    by have [/disjoint_sym ? _] := disjoint_union (disjoint_sym hdisj).
-  apply (eq_ex_disjoint_eq_on heqvm').
-  by have [_ /disjoint_sym ?] := disjoint_union (disjoint_sym hdisj).
-Qed.
 
 (* TODO: move this *)
 
@@ -472,7 +370,7 @@ Let post s1 s2 :=
 
 Lemma istack_zeroization_lprog_lsem :
   wkequiv pre (ilsem lp (endpc lp fn)) (ilsem lp' (fun s => endpc lp fn s && endpc lp' fn s)) post.
-Proof.
+Proof using hszparams pp' hget hget'.
   apply wkequiv_iter.
   rewrite /while_body => s _ [<-] hpre.
   case: ifPn => hpc /=; last first.
@@ -508,7 +406,7 @@ Lemma istack_zeroization_lprogP_aux lp lp' fn lfd ptr :
       [/\ escs s1 = escs s2
         , (evm s1) =[sv_of_list v_var lfd.(lfd_res)] (evm s2)
         & match_mem_zero_export (emem s1) (emem s2) bottom lfd.(lfd_stk_max) (szs_of_fn fn)]).
-Proof.
+Proof using hszparams.
   move=> hin hzerolp hlfd enough_stk bottom s _ [<-] hvalid hrsp.
   rewrite /ilsem_exportcall hlfd /=.
   have [lfd' hzero hlfd'] := stack_zeroization_lprog_get_fundef hzerolp hlfd.
@@ -631,7 +529,7 @@ Lemma istack_zeroization_lprogP lp lp' fn lfd :
     (ilsem_exportcall lp fn)
     (ilsem_exportcall lp' fn)
     (sz_post lp fn lfd).
-Proof.
+Proof using hszparams.
   move=> hin hzerolp hlfd s1 _ [ptr [hrsp <- enough_stk hvalid]].
   have := istack_zeroization_lprogP_aux hin hzerolp hlfd enough_stk (And3 erefl hvalid hrsp).
   apply: xrutt_facts.xrutt_weaken => // o1 o2 [hscs hvm hmatch]; exists ptr; split => //.

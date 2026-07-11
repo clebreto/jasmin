@@ -104,7 +104,7 @@ Lemma interp_mrec_check_aux :
   forall T (t1 t2 : itree (D +' E) T),
   invariant t1 t2 ->
   interp_mrec ctx t1 ≈ interp_mrec ctx' t2.
-Proof.
+Proof using ncheck_throw.
   intros T; einit; ecofix cih.
   induction 1 as [t | A t k k' hinv ih | A t k k' hinv ih].
   { destruct (case_itree t) as [ ? H | u H | A [d|e] k H ];
@@ -141,10 +141,10 @@ Proof.
 Qed.
 
 Lemma interp_mrec_check {R} (t : itree (D +' E) R) : interp_mrec ctx t ≈ interp_mrec ctx' t.
-Proof. apply interp_mrec_check_aux; constructor. Qed.
+Proof using ncheck_throw. apply interp_mrec_check_aux; constructor. Qed.
 
 Lemma mrec_check {R} (d : D R) : mrec ctx d ≈ mrec ctx' d.
-Proof.
+Proof using ncheck_throw.
   unfold mrec; rewrite <- interp_mrec_check .
   unfold ctx', ctx1. generalize (ctx d); clear d.
   ginit; pcofix cih; intros t.
@@ -203,7 +203,7 @@ Lemma interp_mrec_loop2_ {D E} (cond : forall T1, D T1 -> forall T2, D T2 -> boo
   forall {t : itree (D +' E) R} {u : itree (D +' E) R},
   invariant cond ctx t u ->
   interp_mrec ctx t ≈ interp_mrec (ctx2_cond cond ctx) u.
-Proof with auto.
+Proof.
   einit.
   ecofix SELF. induction 1 as [t | T1 d1 A t k | A t k k'].
   - destruct (case_itree t) as [ ? H | u H | A [d|e] k H ]; rewrite <- H; rewrite 2 unfold_interp_mrec; simpl.

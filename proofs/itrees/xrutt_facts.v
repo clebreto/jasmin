@@ -32,21 +32,6 @@ Section FromRuttFacts.
 Definition eq_tfun (E1 E2: Type -> Type) : Prop :=
   forall A, E1 A = E2 A.
 
-Global Instance subsum_eq_Proper :
-  Proper (eq_tfun ==> eq_tfun ==> eq) (fun X Y => X -< Y).
-Proof.
-  unfold Proper, eq_tfun, respectful, ReSum, IFun; simpl.
-  intros x y H x0 y0 H0.
-  assert (forall T : Type, (x T -> x0 T) = (y T -> y0 T)) as A1.
-  { intro T; rewrite <- H0.
-    rewrite <- H; auto. }
-  set (F1 := fun t => x t -> x0 t).
-  set (F2 := fun t => y t -> y0 t).
-  assert (forall T, F1 T = F2 T) as A2.
-  { subst F1 F2. simpl; auto. }
-  eapply (@forall_extensionality Type F1 F2) in A1; auto.
-Qed.
-
 Definition eq_REv {E1 E2: Type -> Type}
   (REv1 REv2 : forall A B, E1 A -> E2 B -> Prop) : Prop :=
   forall A B, eq_rel (REv1 A B) (REv2 A B).
@@ -467,7 +452,7 @@ Section XRuttMrec.
                RR t1 t2 ->
       xrutt EE1 EE2 RPre RPost
         RR (interp_mrec bodies1 t1) (interp_mrec bodies2 t2).
-  Proof.
+  Proof using Hbodies.
     ginit. gcofix CIH.
     intros t1 t2 Ht12. punfold Ht12. red in Ht12.
     remember (observe t1) as ot1. remember (observe t2) as ot2.
@@ -519,7 +504,7 @@ Section XRuttMrec.
     @RPreInv A B d1 d2 ->
     xrutt EE1 EE2 RPre RPost (fun (a : A) (b : B) => @RPostInv A B d1 a d2 b)
          (mrec bodies1 d1) (mrec bodies2 d2).
-  Proof.
+  Proof using Hbodies.
     intros. apply interp_mrec_xrutt. auto.
   Qed.
 
@@ -551,7 +536,7 @@ Section XRuttRec.
       (fun (t1 : B1) (t2 : B2) =>
          @RPostInv B1 B2 (Call a1) t1 (Call a2) t2)
                    (rec bodies1 a1) (rec bodies2 a2).
-  Proof.
+  Proof using Hbodies.
     unfold rec.
     eapply mrec_xrutt with (RPreInv:=RPreInv). eauto.
   Qed.

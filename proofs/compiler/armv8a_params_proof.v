@@ -26,7 +26,7 @@ Require Import
 Require Import
   lea_proof
   linearization
-  linearization_proof
+  it_linearization_proof
   lowering
   stack_alloc_params_proof
   stack_zeroization_proof.
@@ -565,7 +565,7 @@ Proof. exists R17; exact: to_identK. Qed.
 (* Lowering hypotheses. *)
 
 Definition armv8a_hloparams : h_lowering_params (ap_lop armv8a_params).
-Proof. split=> *; [exact: lower_callP | exact: it_lower_callP]. Qed.
+Proof. constructor => *; exact: it_lower_callP. Qed.
 
 (* ------------------------------------------------------------------------ *)
 (* Lowering of complex addressing mode for RISC-V.
@@ -576,7 +576,6 @@ Proof.
   split=> /=.
   + by move=> _ ? _ [<-].
   + move=> _ ? _ [<-] _ fd ->; by exists fd.
-  + by move=> _ ? _ [<-].
   move=> ???? _ ? _ ?? [<-]; exact: (wiequiv_f_eq (scP := sCP_stack)).
 Qed.
 

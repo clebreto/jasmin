@@ -14,7 +14,7 @@ Require Import
   sem_one_varmap.
 Require Import
   linearization
-  linearization_proof
+  it_linearization_proof
   lowering
   slh_lowering
   slh_lowering_proof
@@ -142,7 +142,7 @@ Proof.
   move=> sp_rsp tmp s ts sz _ Hvm.
   rewrite /= Hvm /= /eval_instr /= /sem_sopn /sem_sop2 /exec_sopn /= !truncate_word_u /= truncate_word_u /=.
   eexists; split; first reflexivity.
-  + by move=> z hz; rewrite Vm.setP_neq //; apply /eqP; SvD.fsetdec.
+  + by move=> z hz; rewrite Vm.setP_neq //; apply /eqP; clear -hz; SvD.fsetdec.
   rewrite sub_wordE.
   by rewrite Vm.setP_eq vm_truncate_val_eq.
 Qed.
@@ -153,7 +153,7 @@ Proof.
   move=> sp_rsp tmp s ts sz _ Hvm.
   rewrite /= Hvm /= /eval_instr /= /sem_sopn /sem_sop2 /exec_sopn /= !truncate_word_u /= truncate_word_u /=.
   eexists; split; first reflexivity.
-  + by move=> z hz; rewrite Vm.setP_neq //; apply /eqP; SvD.fsetdec.
+  + by move=> z hz; rewrite Vm.setP_neq //; apply /eqP; clear -hz; SvD.fsetdec.
   by rewrite Vm.setP_eq vm_truncate_val_eq.
 Qed.
 
@@ -286,7 +286,7 @@ Qed.
 
 (* Due to the order of the parameters we can't defined this as a record. *)
 Definition x86_hloparams : h_lowering_params (ap_lop x86_params).
-Proof. split=> *; [exact: lower_callP | exact: it_lower_callP]. Qed.
+Proof. split=> *; exact: it_lower_callP. Qed.
 
 (* ------------------------------------------------------------------------ *)
 (* Lowering of complex addressing mode for RISC-V.
@@ -297,7 +297,6 @@ Proof.
   split=> /=.
   + by move=> _ ? _ [<-].
   + move=> _ ? _ [<-] _ fd ->; by exists fd.
-  + by move=> _ ? _ [<-].
   move=> ???? _ ? _ ?? [<-]; exact: (wiequiv_f_eq (scP := sCP_stack)).
 Qed.
 
