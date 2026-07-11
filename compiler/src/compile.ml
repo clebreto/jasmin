@@ -330,7 +330,14 @@ let compile (type reg regx xreg rflag cond asm_op extra_op)
   in
 
   let szs_of_fn fn =
-    (get_annot fn).stack_zero_strategy
+    match (get_annot fn).stack_zero_strategy with
+    | Some (szs, None) when wsize_lt Arch.reg_size Arch.sp_min_align ->
+        (* The default clear step is the frame alignment, which
+           [sp_min_align] raises above what the architecture can store in
+           one instruction (u128 on armv8a): cap the default at the
+           register size. *)
+        Some (szs, Some Arch.reg_size)
+    | szs -> szs
   in
 
   (* This implements an analysis returning the set of variables becoming dead
