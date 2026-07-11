@@ -149,8 +149,8 @@ op LSL_32 (x: W32.t) (sham: W8.t) : W32.t = x `<<` W8.of_int (to_uint sham %% 32
 op LSR_64 (x: W64.t) (sham: W8.t) : W64.t = x `>>` W8.of_int (to_uint sham %% 64).
 op LSR_32 (x: W32.t) (sham: W8.t) : W32.t = x `>>` W8.of_int (to_uint sham %% 32).
 
-op ROR_64 (x: W64.t) (sham: W8.t) : W64.t = x `|>>>` (to_uint sham %% 64).
-op ROR_32 (x: W32.t) (sham: W8.t) : W32.t = x `|>>>` (to_uint sham %% 32).
+op ROR_64 (x: W64.t) (sham: W8.t) : W64.t = x `|>>>|` (to_uint sham %% 64).
+op ROR_32 (x: W32.t) (sham: W8.t) : W32.t = x `|>>>|` (to_uint sham %% 32).
 
 (* -------------------------------------------------------------------- *)
 (* Bit field operations. *)
