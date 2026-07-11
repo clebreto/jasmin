@@ -11,7 +11,7 @@ module Core_arch_RISCV = Riscv_arch_full.Riscv (struct
 end)
 
 module Core_arch_ARMV8A = Armv8a_arch_full.Armv8a (struct
-  let call_conv = Armv8a_decl.armv8a_linux_call_conv
+  let call_conv = Armv8a_decl.armv8a_call_conv
 end)
 
 let core_arch_x86 call_conv :

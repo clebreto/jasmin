@@ -278,9 +278,16 @@ Instance armv8a_decl : arch_decl register register_ext xregister rflag condt :=
   }.
 
 (* -------------------------------------------------------------------- *)
-(* Calling convention (AAPCS64). *)
+(* Calling convention (AAPCS64).
+   There is a single convention: AAPCS64 is the same on Linux, macOS and
+   Windows for everything Jasmin uses (arguments in R0-R7, results in
+   R0/R1, callee-saved R19-R30). The only platform-dependent register is
+   x18 (reserved on Windows, on Apple platforms and under
+   shadow-call-stack Linux), and it is excluded from the register file
+   altogether (see the [register] declaration above), so this convention
+   is valid on all platforms. *)
 
-Definition armv8a_linux_call_conv : calling_convention :=
+Definition armv8a_call_conv : calling_convention :=
   {| callee_saved :=
       map ARReg [:: R19; R20; R21; R22; R23; R24; R25; R26; R27; R28
                   ; R29; RSP ]
