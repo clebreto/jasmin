@@ -1217,8 +1217,8 @@ Proof.
         rewrite /armv8a_MADD_semi /armv8a_MSUB_semi
           ?add_wordE ?sub_wordE ?mul_wordE
           ?(wadd_zero_extend _ _ hws) ?(wsub_zero_extend _ _ hws)
-          ?(zero_extend_idem _ hws) ?(wmul_zero_extend _ _ hlem)
-          ?zero_extend_u;
+          ?(wopp_zero_extend _ hws) ?(zero_extend_idem _ hws)
+          ?(wmul_zero_extend _ _ hlem) ?zero_extend_u;
         first [ by [] | by rewrite GRing.addrC ] ].
   }
 
@@ -1394,7 +1394,7 @@ Lemma sem_lower_pexpr
   -> exists2 s1',
        let cmd := map (MkI ii) (pre ++ [:: Copn [:: lv ] tag op es ]) in
        esem p' ev cmd s0' = ok s1' & eq_fv s1 s1'.
-Proof.
+Proof using atoI ev fv fv_correct p pT sCP sc_sem syscall_state warning wsw.
   move=> h hs00 hws hfve hfvlv hseme hwrite.
 
   move: s0 ws' pre op es w h hs00 hws hfve hfvlv hseme hwrite.
@@ -1509,7 +1509,7 @@ Lemma lower_cassgn_wordP ii s0 lv tag ws e v v' s0' s1' pre lvs op es :
   -> exists2 s2',
        esem p' ev (map (MkI ii) (pre ++ [:: Copn lvs tag op es ])) s0' = ok s2'
        & eq_fv s1' s2'.
-Proof.
+Proof using atoI ev fv fv_correct p pT sCP sc_sem syscall_state warning wsw.
   rewrite /lower_cassgn_word.
   move=> h hseme htrunc hwrite01' hs00 hfve hfvlv hsem01'.
 
@@ -1550,7 +1550,7 @@ Lemma lower_cassgn_boolP ii s0 lv tag e v v' s0' s1' irs :
   -> exists2 s2',
        esem p' ev (map (MkI ii) irs) s0' = ok s2'
        & eq_fv s1' s2'.
-Proof.
+Proof using atoI ev fv fv_correct p pT sCP sc_sem syscall_state warning wsw.
   rewrite /lower_cassgn_bool => h ok_v ok_v' ok_s1' hs00 hfve hfvlv hsem01'.
   case h: lower_condition_pexpr h => [ [] [] [] lvs op es c | // ] /Some_inj <-{irs}.
   have [ si [] hsem0i hs0i {} ok_v ] := sem_lower_condition_pexpr tag ii h hs00 hfve ok_v.
@@ -1765,7 +1765,7 @@ Proof. apply checker_st_eq_exP => //. Qed.
 
 Lemma it_lower_callP fn :
   wiequiv_f p p' ev ev (rpreF (eS:= eq_spec)) fn fn (rpostF (eS:=eq_spec)).
-Proof.
+Proof using E E0 atoI dc ev fv fv_correct p pT rE0 sCP sc_sem syscall_state wE warning wsw.
   apply wequiv_fun_ind => {}fn _ fs _ [<- <-] fd hget.
   have [_ hfvres hfvc] := disj_fvars_get_fundef hget.
   rewrite get_map_prog hget /= /lower_fd.
