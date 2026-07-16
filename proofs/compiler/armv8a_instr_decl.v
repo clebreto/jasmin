@@ -466,6 +466,17 @@ Lemma safe_wf_cat (tin tin' : seq ltype) sc :
   all (fun sc => sc_needed_args sc <= size (tin ++ tin')) sc.
 Proof. apply sub_all => c h; rewrite size_cat; apply: (leq_trans h); apply leq_addr. Qed.
 
+(* On A64 a shifted operand exists only in the register form of an
+   instruction (C6.2.5 "ADD (shifted register)" and friends). The immediate
+   forms admit either no shift at all (logical instructions, whose bitmask
+   immediate is checked by [CAimmC_armv8a_bitmask_imm]) or only
+   [LSL #0]/[LSL #12], which is part of the immediate encoding itself and
+   folded into [CAimmC_armv8a_arith_imm]. The shifted variant of an
+   instruction therefore keeps only the register alternatives of the base
+   instruction and appends the shift amount to those. *)
+Definition args_kinds_no_imm (x : args_kinds) : bool :=
+  ~~ has (has (fun k => if k is CAimm _ _ then true else false)) x.
+
 Definition mk_shifted
   (ws : wsize) (sk : shift_kind) (idt : instr_desc_t) semi' semi_errty' semi_safe' : instr_desc_t :=
   {|
@@ -477,7 +488,8 @@ Definition mk_shifted
     id_semi := semi';
     id_nargs := (id_nargs idt).+1;
     id_args_kinds :=
-      map (fun x => x ++ [:: [:: CAimm (CAimmC_armv8a_shift_amount ws) U8] ]) (id_args_kinds idt);
+      map (fun x => x ++ [:: [:: CAimm (CAimmC_armv8a_shift_amount ws) U8] ])
+        (filter args_kinds_no_imm (id_args_kinds idt));
     id_eq_size := mk_shifted_eq_size (id_eq_size idt);
     id_check_dest := id_check_dest idt;
     id_str_jas := id_str_jas idt;
@@ -559,7 +571,7 @@ Let armv8a_mn_str (mn : armv8a_mnemonic) : unit -> string :=
    without an immediate form (BIC, MVN, ...) only accept registers, which
    the [option] parameter of [ak_rr_or_imm]/[ak_rrr_or_imm] expresses
    with [None]. The immediate forms are only available without a shifted
-   operand. *)
+   operand: [mk_shifted] drops them from the shifted variant. *)
 
 Let ak_rr := ak_reg_reg.
 Let ak_rrr := ak_reg_reg_reg.
@@ -567,18 +579,12 @@ Let ak_rrrr := ak_reg_reg_reg_reg.
 
 Let ak_rr_or_imm (ick : option caimm_checker_s) :=
   if ick is Some ic
-  then
-    if has_shift opts
-    then ak_reg_reg
-    else ak_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAimm ic osz ] ] ]
+  then ak_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAimm ic osz ] ] ]
   else ak_reg_reg.
 
 Let ak_rrr_or_imm (ick : option caimm_checker_s) :=
   if ick is Some ic
-  then
-    if has_shift opts
-    then ak_reg_reg_reg
-    else ak_reg_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAimm ic osz ] ] ]
+  then ak_reg_reg_reg ++ [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAimm ic osz ] ] ]
   else ak_reg_reg_reg.
 
 Let ak_rr_imm_shift :=
