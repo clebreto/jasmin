@@ -140,6 +140,9 @@ module Armv8a (Lowering_params : Armv8a_input) = struct
      DDI0487M.a, D1.4.10.2 (see also the AAPCS64 stack constraints). *)
   let sp_min_align = Wsize.U128
 
+  (* One X-register store; SIMD (NEON) stores would raise this to u128. *)
+  let max_store_size = Wsize.U64
+
   let internal_call_conv = Armv8a_decl.armv8a_internal_call_conv
 
   include Lowering_params
