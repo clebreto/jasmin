@@ -331,12 +331,12 @@ let compile (type reg regx xreg rflag cond asm_op extra_op)
 
   let szs_of_fn fn =
     match (get_annot fn).stack_zero_strategy with
-    | Some (szs, None) when wsize_lt Arch.reg_size Arch.sp_min_align ->
+    | Some (szs, None) when wsize_lt Arch.max_store_size Arch.sp_min_align ->
         (* The default clear step is the frame alignment, which
-           [sp_min_align] raises above what the architecture can store in
-           one instruction (u128 on armv8a): cap the default at the
-           register size. *)
-        Some (szs, Some Arch.reg_size)
+           [sp_min_align] may raise beyond the widest store the
+           architecture can perform in one instruction (u128 vs u64 on
+           armv8a): cap the default at that width. *)
+        Some (szs, Some Arch.max_store_size)
     | szs -> szs
   in
 
