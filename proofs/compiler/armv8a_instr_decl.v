@@ -203,6 +203,16 @@ Definition has_shift_mnemonics : seq armv8a_mnemonic :=
     ; CMP; CMN; TST
   ].
 
+(* The arithmetic instructions (ADD/ADDS/SUB/SUBS/NEG/CMP/CMN) only admit
+   LSL, LSR and ASR on their shifted-register operand; ROR is reserved
+   (C6.2.5 "ADD (shifted register)"). The logical instructions admit all
+   four shifts (C6.2.14 "AND (shifted register)"). *)
+Definition ror_shift_mnemonics : seq armv8a_mnemonic :=
+  [:: AND; ANDS; BIC; BICS; ORR; EOR; MVN; TST ].
+
+Definition shift_allowed (mn : armv8a_mnemonic) (sk : shift_kind) : bool :=
+  if sk is SROR then mn \in ror_shift_mnemonics else true.
+
 (* Mnemonics available in both the 32-bit (W) and 64-bit (X) forms; the
    remaining mnemonics are only valid with [opts_size = U64]. *)
 Definition sized_mnemonics : seq armv8a_mnemonic :=
@@ -478,7 +488,8 @@ Definition args_kinds_no_imm (x : args_kinds) : bool :=
   ~~ has (has (fun k => if k is CAimm _ _ then true else false)) x.
 
 Definition mk_shifted
-  (ws : wsize) (sk : shift_kind) (idt : instr_desc_t) semi' semi_errty' semi_safe' : instr_desc_t :=
+  (ws : wsize) (sk : shift_kind) (mn : armv8a_mnemonic)
+  (idt : instr_desc_t) semi' semi_errty' semi_safe' : instr_desc_t :=
   {|
     id_msb_flag := idt.(id_msb_flag);
     id_tin := (id_tin idt) ++ [:: lword8 ];
@@ -495,7 +506,9 @@ Definition mk_shifted
     id_str_jas := id_str_jas idt;
     id_safe := id_safe idt;
     id_pp_asm := id_pp_asm idt;
-    id_valid := id_valid idt;
+    (* The descriptor itself rejects a shift kind that the instruction
+       does not admit (ROR on the arithmetic class). *)
+    id_valid := id_valid idt && shift_allowed mn sk;
     id_safe_wf := safe_wf_cat _ (id_safe_wf idt);
     id_semi_errty := semi_errty';
     id_semi_safe := semi_safe'
@@ -644,9 +657,11 @@ Definition mk_arith_instr mn (ick : option caimm_checker_s)
     |}
   in
   if has_shift opts is Some sk
-  then mk_shifted osz sk x (mk_semi2_2_shifted sk (id_semi x))
-                       (fun h => mk_semi2_2_shifted_errty (x.(id_semi_errty) h))
-                       (fun h => mk_semi2_2_shifted_safe sk (x.(id_semi_safe) h))
+  then mk_shifted osz sk mn x (mk_semi2_2_shifted sk (id_semi x))
+                       (fun h => mk_semi2_2_shifted_errty
+                                   (x.(id_semi_errty) (proj1 (andb_prop _ _ h))))
+                       (fun h => mk_semi2_2_shifted_safe sk
+                                   (x.(id_semi_safe) (proj1 (andb_prop _ _ h))))
   else x.
 
 (* Same as [mk_arith_instr], with the NZCV flags as extra outputs. *)
@@ -676,9 +691,11 @@ Definition mk_ariths_instr mn (ick : option caimm_checker_s)
     |}
   in
   if has_shift opts is Some sk
-  then mk_shifted osz sk x (mk_semi2_2_shifted sk (id_semi x))
-                       (fun h => mk_semi2_2_shifted_errty (x.(id_semi_errty) h))
-                       (fun h => mk_semi2_2_shifted_safe sk (x.(id_semi_safe) h))
+  then mk_shifted osz sk mn x (mk_semi2_2_shifted sk (id_semi x))
+                       (fun h => mk_semi2_2_shifted_errty
+                                   (x.(id_semi_errty) (proj1 (andb_prop _ _ h))))
+                       (fun h => mk_semi2_2_shifted_safe sk
+                                   (x.(id_semi_safe) (proj1 (andb_prop _ _ h))))
   else x.
 
 Notation arith_imm := (Some CAimmC_armv8a_arith_imm) (only parsing).
@@ -938,9 +955,11 @@ Definition armv8a_NEG_instr : instr_desc_t :=
     |}
   in
   if has_shift opts is Some sk
-  then mk_shifted osz sk x (mk_semi1_shifted sk (id_semi x))
-                       (fun h => mk_semi1_shifted_errty (x.(id_semi_errty) h))
-                       (fun h => mk_semi1_shifted_safe sk (x.(id_semi_safe) h))
+  then mk_shifted osz sk mn x (mk_semi1_shifted sk (id_semi x))
+                       (fun h => mk_semi1_shifted_errty
+                                   (x.(id_semi_errty) (proj1 (andb_prop _ _ h))))
+                       (fun h => mk_semi1_shifted_safe sk
+                                   (x.(id_semi_safe) (proj1 (andb_prop _ _ h))))
   else x.
 
 (* A three-register instruction without flags (MUL, SDIV, UDIV, ...). *)
@@ -1405,9 +1424,11 @@ Definition armv8a_MVN_instr : instr_desc_t :=
     |}
   in
   if has_shift opts is Some sk
-  then mk_shifted osz sk x (mk_semi1_shifted sk (id_semi x))
-                       (fun h => mk_semi1_shifted_errty (x.(id_semi_errty) h))
-                       (fun h => mk_semi1_shifted_safe sk (x.(id_semi_safe) h))
+  then mk_shifted osz sk mn x (mk_semi1_shifted sk (id_semi x))
+                       (fun h => mk_semi1_shifted_errty
+                                   (x.(id_semi_errty) (proj1 (andb_prop _ _ h))))
+                       (fun h => mk_semi1_shifted_safe sk
+                                   (x.(id_semi_safe) (proj1 (andb_prop _ _ h))))
   else x.
 
 (* -------------------------------------------------------------------- *)
@@ -2342,9 +2363,11 @@ Definition mk_cmp_instr mn (ick : option caimm_checker_s)
     |}
   in
   if has_shift opts is Some sk
-  then mk_shifted osz sk x (mk_semi2_2_shifted sk (id_semi x))
-                       (fun h => mk_semi2_2_shifted_errty (x.(id_semi_errty) h))
-                       (fun h => mk_semi2_2_shifted_safe sk (x.(id_semi_safe) h))
+  then mk_shifted osz sk mn x (mk_semi2_2_shifted sk (id_semi x))
+                       (fun h => mk_semi2_2_shifted_errty
+                                   (x.(id_semi_errty) (proj1 (andb_prop _ _ h))))
+                       (fun h => mk_semi2_2_shifted_safe sk
+                                   (x.(id_semi_safe) (proj1 (andb_prop _ _ h))))
   else x.
 
 (* [C6.2.97 CMP (shifted register)] ARM DDI 0487 M.a, p. 1953
