@@ -154,7 +154,10 @@ Definition arg_shift
     if mn \in has_shift_mnemonics
     then
       if get_arg_shift ws e is Some (ebase, sh, esham)
-      then (Some sh, [:: ebase; esham ])
+      then
+        if shift_allowed mn sh
+        then (Some sh, [:: ebase; esham ])
+        else (None, e)
       else (None, e)
     else
       (None, e)
@@ -490,7 +493,10 @@ Definition lower_base_op
       match es with
       | x :: rest =>
           if get_arg_shift ws [:: x ] is Some (ebase, sh, esham)
-          then Some (lvs, Oasm (BaseOp (None, ARMv8A_op mn (with_shift opts sh))), ebase :: esham :: rest)
+          then
+            if shift_allowed mn sh
+            then Some (lvs, Oasm (BaseOp (None, ARMv8A_op mn (with_shift opts sh))), ebase :: esham :: rest)
+            else Some (lvs, Oasm (BaseOp (None, ARMv8A_op mn opts)), es)
           else Some (lvs, Oasm (BaseOp (None, ARMv8A_op mn opts)), es)
       | _ => None end
     else if mn \in [:: ADD; ADDS; SUB; SUBS; AND; ANDS; BIC; BICS; EOR; ORR; CMP; CMN; TST ]
@@ -498,7 +504,10 @@ Definition lower_base_op
       match es with
       | x :: y :: rest =>
           if get_arg_shift ws [:: y ] is Some (ebase, sh, esham)
-          then Some (lvs, Oasm (BaseOp (None, ARMv8A_op mn (with_shift opts sh))), x :: ebase :: esham :: rest)
+          then
+            if shift_allowed mn sh
+            then Some (lvs, Oasm (BaseOp (None, ARMv8A_op mn (with_shift opts sh))), x :: ebase :: esham :: rest)
+            else Some (lvs, Oasm (BaseOp (None, ARMv8A_op mn opts)), es)
           else Some (lvs, Oasm (BaseOp (None, ARMv8A_op mn opts)), es)
       | _ => None end
     else None.

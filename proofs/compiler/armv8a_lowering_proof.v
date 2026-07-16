@@ -651,8 +651,10 @@ Proof.
     move=> /oassertP [/eqP ? h]; subst ws0; move: h.
 
     rewrite /arg_shift.
-    case hshift: get_arg_shift => [[[e' sh] sham]|] /=.
+    case hshift: get_arg_shift => [[[e' sh] sham]|] /=;
+      first case hallowed: (shift_allowed _ sh).
 
+    (* Recognized, allowed shift: fused. *)
     + have [ws1 [wbase [wsham [hws1 hbase hsham hv [hfvbase hfvsham]]]]] :=
         get_arg_shiftP hshift hfve hseme.
       case/to_wordI': hv => wsv [] w'' []  hwsv ? hv; subst v.
@@ -669,17 +671,26 @@ Proof.
       rewrite /exec_sopn /sopn_sem /sopn_sem_ /= ?hwsx' /=.
       rewrite /semi_to_atype ?computational_eq_refl /=.
       rewrite !truncate_word_le // {hws1} /=.
+      rewrite hallowed /=.
       by rewrite !zero_extend_u hv.
 
-    clear hshift.
-    move=> [? ?]; subst op' es.
-    split; last by split.
-    rewrite /=.
-    rewrite hseme {hseme} /=.
-    eexists; first reflexivity.
-    rewrite /exec_sopn /sopn_sem /sopn_sem_ /= ?hwsx' /=.
-    rewrite /semi_to_atype ?computational_eq_refl /=.
-    by rewrite hw' /= zero_extend_u.
+    (* Shift kind not allowed for this mnemonic: not fused. *)
+    + move=> [? ?]; subst op' es;
+      (split; last by split);
+      rewrite /= hseme /=;
+      (eexists; first reflexivity);
+      rewrite /exec_sopn /sopn_sem /sopn_sem_ /= ?hwsx' /=;
+      rewrite /semi_to_atype ?computational_eq_refl /=;
+      by rewrite hw' /= zero_extend_u.
+
+    (* No recognized shift: not fused. *)
+    move=> [? ?]; subst op' es;
+      (split; last by split);
+      rewrite /= hseme /=;
+      (eexists; first reflexivity);
+      rewrite /exec_sopn /sopn_sem /sopn_sem_ /= ?hwsx' /=;
+      rewrite /semi_to_atype ?computational_eq_refl /=;
+      by rewrite hw' /= zero_extend_u.
 
   (* Case: [Oneg]. *)
   move: hw => /sem_sop1I /= [w' [?] [hw' [?] hw]].
@@ -688,8 +699,10 @@ Proof.
   move=> /oassertP [/eqP ? h]; subst ws0; move: h.
 
   rewrite /arg_shift.
-  case hshift: get_arg_shift => [[[e' sh] sham]|] /=.
+  case hshift: get_arg_shift => [[[e' sh] sham]|] /=;
+    first case hallowed: (shift_allowed _ sh).
 
+  (* Recognized, allowed shift: fused. *)
   + have [ws1 [wbase [wsham [hws1 hbase hsham hv [hfvbase hfvsham]]]]] :=
       get_arg_shiftP hshift hfve hseme.
     case/to_wordI': hv => wsv [] w'' []  hwsv ? hv; subst v.
@@ -706,20 +719,29 @@ Proof.
     rewrite /exec_sopn /sopn_sem /sopn_sem_ /= ?hwsx' /=.
     rewrite /semi_to_atype ?computational_eq_refl /=.
     rewrite !truncate_word_le // {hws1} /=.
+    rewrite hallowed /=.
     rewrite /armv8a_NEG_semi.
     by rewrite !zero_extend_u hv add_wordE wnot1_wopp.
 
-  clear hshift.
-  move=> [? ?]; subst op' es.
-  split; last by split.
-  rewrite /=.
-  rewrite hseme {hseme} /=.
-  eexists; first reflexivity.
-  rewrite /exec_sopn /sopn_sem /sopn_sem_ /= ?hwsx' /=.
-  rewrite /semi_to_atype ?computational_eq_refl /=.
-  rewrite hw' /= zero_extend_u.
-  rewrite /armv8a_NEG_semi.
-  by rewrite add_wordE wnot1_wopp.
+  (* Shift kind not allowed for this mnemonic: not fused. *)
+  + move=> [? ?]; subst op' es;
+    (split; last by split);
+    rewrite /= hseme /=;
+    (eexists; first reflexivity);
+    rewrite /exec_sopn /sopn_sem /sopn_sem_ /= ?hwsx' /=;
+    rewrite /semi_to_atype ?computational_eq_refl /=;
+    rewrite hw' /= zero_extend_u /armv8a_NEG_semi;
+    by rewrite add_wordE wnot1_wopp.
+
+  (* No recognized shift: not fused. *)
+  move=> [? ?]; subst op' es;
+    (split; last by split);
+    rewrite /= hseme /=;
+    (eexists; first reflexivity);
+    rewrite /exec_sopn /sopn_sem /sopn_sem_ /= ?hwsx' /=;
+    rewrite /semi_to_atype ?computational_eq_refl /=;
+    rewrite hw' /= zero_extend_u /armv8a_NEG_semi;
+    by rewrite add_wordE wnot1_wopp.
 Qed.
 
 Lemma mk_sem_divmodP si ws op (w0 w1 : word ws) w :
@@ -800,6 +822,7 @@ Ltac rewrite_exec :=
 
 Lemma with_shift_unop mn s eb ea ts (b: word ts) (a: u8) x vs sh opts r :
   mn \in [:: MVN; NEG ] ->
+  shift_allowed mn sh ->
   (opts_size opts ≤ ts)%CMP ->
   has_shift opts = None ->
   sem_pexpr true (p_globs p) s eb = ok (Vword b) ->
@@ -810,8 +833,10 @@ Lemma with_shift_unop mn s eb ea ts (b: word ts) (a: u8) x vs sh opts r :
   exec_sopn (Oasm (BaseOp (None, ARMv8A_op mn (with_shift opts sh) ))) [:: Vword b, Vword a & vs] = ok r.
 Proof.
   rewrite !inE.
-  case: opts => sho sz /= mn_unop hts -> ok_b ok_a hx.
+  case: opts => sho sz /= mn_unop hallow hts -> ok_b ok_a hx.
+  move: hallow.
   case/orP: mn_unop => /eqP -> {mn}.
+  all: move=> /= hallow.
   all: rewrite /exec_sopn /sopn_sem /sopn_sem_ /=.
   all: t_xrbindP => ha hvalid hsemi z0 z1 hz1 hmatch heq.
   all: subst ha.
@@ -819,13 +844,14 @@ Proof.
   all: move: hmatch; case: vs => //= hmatch.
   all: move: hmatch;
     rewrite /semi_to_atype !computational_eq_refl /= => -[?]; subst z0.
-  all: rewrite hvalid /=.
+  all: rewrite hvalid hallow /=.
   all: rewrite (truncate_word_le _ hts) truncate_word_u /= /mk_semi1_shifted /=.
   all: by rewrite -heq.
 Qed.
 
 Lemma with_shift_binop mn s eb ea ts (b: word ts) (a: u8) x y vs sh opts r :
   mn \in [:: ADD; ADDS; SUB; SUBS; AND; ANDS; BIC; BICS; EOR; ORR; CMP; CMN; TST] ->
+  shift_allowed mn sh ->
   (opts_size opts ≤ ts)%CMP ->
   has_shift opts = None ->
   sem_pexpr true (p_globs p) s eb = ok (Vword b) ->
@@ -836,15 +862,17 @@ Lemma with_shift_binop mn s eb ea ts (b: word ts) (a: u8) x y vs sh opts r :
   exec_sopn (Oasm (BaseOp (None, ARMv8A_op mn (with_shift opts sh) ))) [:: x, Vword b, Vword a & vs] = ok r.
 Proof.
   rewrite !inE.
-  case: opts => sho sz /= mn_binop hts -> ok_b ok_a hy.
+  case: opts => sho sz /= mn_binop hallow hts -> ok_b ok_a hy.
+  move: hallow.
   repeat case/orP: mn_binop => [ /eqP -> { mn } | mn_binop ]; last move/eqP: mn_binop => -> { mn }.
+  all: move=> /= hallow.
   all: rewrite /exec_sopn /sopn_sem /sopn_sem_ /=.
   all: t_xrbindP => ha hvalid hsemi z0 z1 hzx z2 hzy hmatch heq.
   all: subst ha.
   all: move: hzy; rewrite hy => -[?]; subst z2.
   all: move: hmatch; case: vs => //=.
   all: rewrite /semi_to_atype !computational_eq_refl /= => -[?]; subst z0.
-  all: rewrite hvalid /=.
+  all: rewrite hvalid hallow /=.
   all: rewrite hzx (truncate_word_le _ hts) truncate_word_u /= /mk_semi2_2_shifted /=.
   all: by rewrite heq.
 Qed.
@@ -1228,6 +1256,7 @@ Proof.
   - rewrite /arg_shift /=.
     case hhas_shift: (mn' \in has_shift_mnemonics); last by move=> [<- <-].
     case hget_arg_shift: get_arg_shift => [[[b' sh] n]|]; last by move=> [<- <-].
+    case hallowed: (shift_allowed mn' sh); last by move=> [<- <-].
     (* special case: there is some arg shift *)
     move=> [<- <-].
     (* we want to use with_shift_binop, so we have to prove this *)
@@ -1275,7 +1304,7 @@ Proof.
     split.
     + rewrite /= ok_v0' hbase hsham /=.
       eexists; first by reflexivity.
-      by apply (with_shift_binop (opts := opts_at ws) hshift_binop hcmp1 erefl hbase hsham hw1'' hsopn).
+      by apply (with_shift_binop (opts := opts_at ws) hshift_binop hallowed hcmp1 erefl hbase hsham hw1'' hsopn).
     split.
     + apply disj_fvars_read_es3 => //.
       by apply: disjoint_w hfv; clear; rewrite !read_es_cons /=; SvD.fsetdec.
@@ -1687,6 +1716,7 @@ Proof.
   case: ifP => mn_unop.
   - case: es hsemi hfve default => // x es hsemi hfve default.
     case x_has_shift: get_arg_shift => [ [ [] ebase sh esham ] | ] ; last exact: default.
+    case hallowed: (shift_allowed mn sh); last exact: default.
     case/Some_inj => <-{lvs'} <-{op'} <-{es'} /=.
     have {} hfve : disj_fvars (read_e x).
     + move: hfve; clear.
@@ -1695,11 +1725,12 @@ Proof.
     rewrite /= /sem_sopn /=; t_xrbindP => r _ w hx ws hes <- hr hwrite.
     have [ ts [] t [] wsham [] hts ht hwsham hw [] hfb hfa ] := get_arg_shiftP x_has_shift hfve hx.
     rewrite ht hwsham hes /=.
-    have -> /= := with_shift_unop mn_unop hts no_shift ht hwsham hw hr.
+    have -> /= := with_shift_unop mn_unop hallowed hts no_shift ht hwsham hw hr.
     exact: hwrite.
   case: ifP => mn_binop; last by [].
   case: es hsemi hfve default => // x [] // y es hsemi hfve default.
   case y_has_shift: get_arg_shift => [ [ [] ebase sh esham ] | ] ; last exact: default.
+  case hallowed: (shift_allowed mn sh); last exact: default.
   case/Some_inj => <-{lvs'} <-{op'} <-{es'} /=.
   have {} hfve : disj_fvars (read_e y).
   + move: hfve; clear.
@@ -1708,7 +1739,7 @@ Proof.
   rewrite /= /sem_sopn /=; t_xrbindP => r _ w -> _ z hy ws hes <- <- hr hwrite.
   have [ ts [] t [] wsham [] hts ht hwsham hw [] hfb hfa ] := get_arg_shiftP y_has_shift hfve hy.
   rewrite ht hwsham hes /=.
-  have -> /= := with_shift_binop mn_binop hts no_shift ht hwsham hw hr.
+  have -> /= := with_shift_binop mn_binop hallowed hts no_shift ht hwsham hw hr.
   exact: hwrite.
 Qed.
 
