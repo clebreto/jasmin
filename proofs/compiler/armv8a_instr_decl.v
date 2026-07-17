@@ -1476,13 +1476,9 @@ Definition mk_shift_instr mn (op : forall sz, word sz -> Z -> word sz)
    right by a variable number of bits, shifting in copies of its sign bit, and
    writes the result to the destination register. The value of the second
    source register modulo the register size in bits gives the number of bits by
-   which the first source register is right-shifted.  This is an alias of ASRV.
-   This means:  • The encodings in this description are named to match the
-   encodings of ASRV. • The description of ASRV gives the operational
-   pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational
-   information for this instruction.
-   Syntax: ASR <Xd>, <Xn>, <Xm>  ==  ASRV <Xd>, <Xn>, <Xm>
-   Operation (ASL, from the ASRV description):
+   which the first source register is right-shifted.
+   Syntax: ASR <Xd>, <Xn>, <Xm>
+   Operation (ASL):
      constant bits(datasize) operand2 = X[m, datasize];
      X[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);
 *)
@@ -1492,13 +1488,9 @@ Definition armv8a_ASR_instr : instr_desc_t := mk_shift_instr ASR (@wsar).
    by a variable number of bits, shifting in zeros, and writes the result to
    the destination register. The value of the second source register modulo the
    register size in bits gives the number of bits by which the first source
-   register is left-shifted.  This is an alias of LSLV. This means:  • The
-   encodings in this description are named to match the encodings of LSLV. •
-   The description of LSLV gives the operational pseudocode, any CONSTRAINED
-   UNPREDICTABLE behavior, and any operational information for this
-   instruction.
-   Syntax: LSL <Xd>, <Xn>, <Xm>  ==  LSLV <Xd>, <Xn>, <Xm>
-   Operation (ASL, from the LSLV description):
+   register is left-shifted.
+   Syntax: LSL <Xd>, <Xn>, <Xm>
+   Operation (ASL):
      constant bits(datasize) operand2 = X[m, datasize];
      X[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);
 *)
@@ -1508,13 +1500,9 @@ Definition armv8a_LSL_instr : instr_desc_t := mk_shift_instr LSL (@wshl).
    right by a variable number of bits, shifting in zeros, and writes the result
    to the destination register. The value of the second source register modulo
    the register size in bits gives the number of bits by which the first source
-   register is right-shifted.  This is an alias of LSRV. This means:  • The
-   encodings in this description are named to match the encodings of LSRV. •
-   The description of LSRV gives the operational pseudocode, any CONSTRAINED
-   UNPREDICTABLE behavior, and any operational information for this
-   instruction.
-   Syntax: LSR <Xd>, <Xn>, <Xm>  ==  LSRV <Xd>, <Xn>, <Xm>
-   Operation (ASL, from the LSRV description):
+   register is right-shifted.
+   Syntax: LSR <Xd>, <Xn>, <Xm>
+   Operation (ASL):
      constant bits(datasize) operand2 = X[m, datasize];
      X[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);
 *)
@@ -1525,12 +1513,9 @@ Definition armv8a_LSR_instr : instr_desc_t := mk_shift_instr LSR (@wshr).
    rotated off the right end are inserted into the vacated bit positions on the
    left. The value of the second source register modulo the register size in
    bits gives the number of bits by which the first source register is right-
-   shifted.  This is an alias of RORV. This means:  • The encodings in this
-   description are named to match the encodings of RORV. • The description of
-   RORV gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE
-   behavior, and any operational information for this instruction.
-   Syntax: ROR <Xd>, <Xn>, <Xm>  ==  RORV <Xd>, <Xn>, <Xm>
-   Operation (ASL, from the RORV description):
+   shifted.
+   Syntax: ROR <Xd>, <Xn>, <Xm>
+   Operation (ASL):
      constant bits(datasize) operand2 = X[m, datasize];
      X[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);
 *)
