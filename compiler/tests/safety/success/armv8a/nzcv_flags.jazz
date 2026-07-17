@@ -1,0 +1,50 @@
+// Exercise the precise handling of the NZCV flags in the ARMv8-A safety
+// analysis: all the guarded non-terminating loops are unreachable, which
+// the analysis can only prove with precise flag expressions.
+export
+fn nzcv_flags(reg u64 x) -> reg u64 {
+    reg bool nf zf cf vf b;
+    reg u64 i y;
+
+    i = 0;
+    nf, zf, cf, vf = #CMP(i, 0);
+    if (!zf) {                       // ZF = (i == 0) = true
+        #[ensure_termination]
+        while (true) { i += 1; }
+    }
+
+    nf, zf, cf, vf = #CMP(i, 1);
+    if (cf) {                        // CF = (0 >=u 1) = false
+        #[ensure_termination]
+        while (true) { i += 1; }
+    }
+
+    nf, zf, cf, vf, i = #SUBS(i, 1); // i = 0 - 1: ZF = false
+    if (zf) {
+        #[ensure_termination]
+        while (true) { i += 1; }
+    }
+
+    i = #MOV(x);
+    i = #AND(i, 7);                  // i in [0; 7]
+    nf, zf, cf, vf = #CMP(i, 8);
+    if (cf) {                        // CF = (i >=u 8) = false
+        #[ensure_termination]
+        while (true) { i += 1; }
+    }
+
+    b = x == x;
+    y = #CSET(b);                    // y = 1
+    if (y != 1) {
+        #[ensure_termination]
+        while (true) { i += 1; }
+    }
+
+    y = #CSEL(i, y, b);              // b is true: y = i in [0; 7]
+    if (y > 7) {
+        #[ensure_termination]
+        while (true) { i += 1; }
+    }
+
+    return i;
+}
