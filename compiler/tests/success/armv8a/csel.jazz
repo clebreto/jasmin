@@ -17,8 +17,5 @@ fn csel(reg u64 arg0, reg u64 arg1) -> reg u64 {
     x = arg1 if b;
 
     x = #CSEL(arg0, arg1, b);
-    x = #CSINC(x, arg1, b);
-    x = #CSINV(x, arg1, b);
-    x = #CSNEG(x, arg1, b);
     return x;
 }

@@ -55,24 +55,13 @@ module Armv8a (Lowering_params : Armv8a_input) = struct
     | Armv8a_instr_decl.ADCS -> true
     | Armv8a_instr_decl.SUB -> true
     | Armv8a_instr_decl.SUBS -> true
-    | Armv8a_instr_decl.SBC -> true
-    | Armv8a_instr_decl.SBCS -> true
     | Armv8a_instr_decl.NEG -> true
     | Armv8a_instr_decl.MUL -> true
     | Armv8a_instr_decl.MADD -> true
     | Armv8a_instr_decl.MSUB -> true
     | Armv8a_instr_decl.SDIV -> false (* Not DIT *)
     | Armv8a_instr_decl.UDIV -> false (* Not DIT *)
-    | Armv8a_instr_decl.UMULL -> true
-    | Armv8a_instr_decl.SMULL -> true
-    | Armv8a_instr_decl.UMADDL -> true
-    | Armv8a_instr_decl.SMADDL -> true
-    | Armv8a_instr_decl.UMULH -> true
-    | Armv8a_instr_decl.SMULH -> true
     | Armv8a_instr_decl.AND -> true
-    | Armv8a_instr_decl.ANDS -> true
-    | Armv8a_instr_decl.BIC -> true
-    | Armv8a_instr_decl.BICS -> true
     | Armv8a_instr_decl.ORR -> true
     | Armv8a_instr_decl.EOR -> true
     | Armv8a_instr_decl.MVN -> true
@@ -80,12 +69,6 @@ module Armv8a (Lowering_params : Armv8a_input) = struct
     | Armv8a_instr_decl.LSL -> true
     | Armv8a_instr_decl.LSR -> true
     | Armv8a_instr_decl.ROR -> true
-    | Armv8a_instr_decl.BFC -> true
-    | Armv8a_instr_decl.BFI -> true
-    | Armv8a_instr_decl.BFXIL -> true
-    | Armv8a_instr_decl.SBFX -> true
-    | Armv8a_instr_decl.UBFX -> true
-    | Armv8a_instr_decl.EXTR -> true
     | Armv8a_instr_decl.MOV -> true
     | Armv8a_instr_decl.MOVN -> true
     | Armv8a_instr_decl.MOVZ -> true
@@ -97,21 +80,9 @@ module Armv8a (Lowering_params : Armv8a_input) = struct
     | Armv8a_instr_decl.UXTB -> true
     | Armv8a_instr_decl.UXTH -> true
     | Armv8a_instr_decl.UXTW -> true
-    | Armv8a_instr_decl.RBIT -> true
-    | Armv8a_instr_decl.REV -> true
-    | Armv8a_instr_decl.REV16 -> true
-    | Armv8a_instr_decl.REV32 -> true
-    | Armv8a_instr_decl.CLZ -> true
-    | Armv8a_instr_decl.CLS -> true
     | Armv8a_instr_decl.CMP -> true
-    | Armv8a_instr_decl.CMN -> true
     | Armv8a_instr_decl.TST -> true
     | Armv8a_instr_decl.CSEL -> true
-    | Armv8a_instr_decl.CSINC -> true
-    | Armv8a_instr_decl.CSINV -> true
-    | Armv8a_instr_decl.CSNEG -> true
-    | Armv8a_instr_decl.CSET -> true
-    | Armv8a_instr_decl.CSETM -> true
     | Armv8a_instr_decl.LDR -> true
     | Armv8a_instr_decl.LDRB -> true
     | Armv8a_instr_decl.LDRH -> true

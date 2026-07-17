@@ -284,13 +284,6 @@ let imm_shift_amounts sz =
 
 (* (lsb, width) pairs, valid for the bitfield instructions:
    0 <= lsb < bits, 1 <= width <= bits - lsb. *)
-let bf_pairs sz =
-  let b = bits sz in
-  [ (0, 1); (0, b); (1, 1); (7, 9); (b / 2, b / 2); (b - 1, 1); (3, b - 3) ]
-
-let extr_lsbs sz =
-  let b = bits sz in
-  [ 0; 1; 7; b / 2; b - 1 ]
 
 let movw_imms = [ 0x0; 0x1; 0x8000; 0xabcd; 0xffff ]
 
@@ -476,60 +469,6 @@ let mk_madd mn sz =
       rows;
     }
 
-(* --- UMULL/SMULL: X-only, W sources ---------------------------------- *)
-
-let mk_mull mn =
-  let sz = Wsize.U64 in
-  let idt = check_valid mn (opts_at sz) in
-  let descr = unit_descr mn sz "" in
-  let rows =
-    List.map
-      (fun (a, b) ->
-        let out = eval_w descr idt [ vword Wsize.U32 a; vword Wsize.U32 b ] in
-        row ~in0:a ~in1:b ~out ())
-      (pairs Wsize.U32)
-  in
-  add_unit
-    {
-      name = unit_name mn sz "";
-      descr;
-      template = Printf.sprintf "%s %%x[out], %%w[in0], %%w[in1]" (lmn mn);
-      harness = Out;
-      ins = [ 0; 1 ];
-      has_fin = false;
-      has_fout = false;
-      rows;
-    }
-
-(* --- UMADDL/SMADDL: X-only, W multiply sources, X addend ------------- *)
-
-let mk_maddl mn =
-  let sz = Wsize.U64 in
-  let idt = check_valid mn (opts_at sz) in
-  let descr = unit_descr mn sz "" in
-  let rows =
-    List.map
-      (fun (a, b, c) ->
-        let out =
-          eval_w descr idt
-            [ vword Wsize.U32 a; vword Wsize.U32 b; vword Wsize.U64 c ]
-        in
-        row ~in0:a ~in1:b ~in2:c ~out ())
-      (triples sz)
-  in
-  add_unit
-    {
-      name = unit_name mn sz "";
-      descr;
-      template =
-        Printf.sprintf "%s %%x[out], %%w[in0], %%w[in1], %%x[in2]" (lmn mn);
-      harness = Out;
-      ins = [ 0; 1; 2 ];
-      has_fin = false;
-      has_fout = false;
-      rows;
-    }
-
 (* --- variable shifts (register form) --------------------------------- *)
 
 let mk_shift_reg mn sz =
@@ -582,139 +521,6 @@ let mk_shift_imm mn sz amt =
         Printf.sprintf "%s %%%s[out], %%%s[in0], #%d" (lmn mn) r r amt;
       harness = Out;
       ins = [ 0 ];
-      has_fin = false;
-      has_fout = false;
-      rows;
-    }
-
-(* --- SBFX/UBFX -------------------------------------------------------- *)
-
-let mk_bfx mn sz (lsb, width) =
-  let idt = check_valid mn (opts_at sz) in
-  let r = rc sz in
-  let descr = unit_descr mn sz (Printf.sprintf "#%d, #%d" lsb width) in
-  let rows =
-    List.map
-      (fun a ->
-        let out =
-          eval_w descr idt
-            [
-              vword sz a;
-              vword Wsize.U8 (Z.of_int lsb);
-              vword Wsize.U8 (Z.of_int width);
-            ]
-        in
-        row ~in0:a ~out ())
-      (pool1 sz)
-  in
-  add_unit
-    {
-      name = unit_name mn sz (Printf.sprintf "l%d_w%d" lsb width);
-      descr;
-      template =
-        Printf.sprintf "%s %%%s[out], %%%s[in0], #%d, #%d" (lmn mn) r r lsb
-          width;
-      harness = Out;
-      ins = [ 0 ];
-      has_fin = false;
-      has_fout = false;
-      rows;
-    }
-
-(* --- BFC: read-modify-write destination ------------------------------- *)
-
-let mk_bfc sz (lsb, width) =
-  let mn = A.BFC in
-  let idt = check_valid mn (opts_at sz) in
-  let r = rc sz in
-  let descr = unit_descr mn sz (Printf.sprintf "#%d, #%d" lsb width) in
-  let rows =
-    List.map
-      (fun x ->
-        let out =
-          eval_w descr idt
-            [
-              vword sz x;
-              vword Wsize.U8 (Z.of_int lsb);
-              vword Wsize.U8 (Z.of_int width);
-            ]
-        in
-        row ~in0:x ~out ())
-      (pool1 sz)
-  in
-  add_unit
-    {
-      name = unit_name mn sz (Printf.sprintf "l%d_w%d" lsb width);
-      descr;
-      template = Printf.sprintf "%s %%%s[out], #%d, #%d" (lmn mn) r lsb width;
-      harness = Out_in0;
-      ins = [];
-      has_fin = false;
-      has_fout = false;
-      rows;
-    }
-
-(* --- BFI/BFXIL: read-modify-write destination plus a source ----------- *)
-
-let mk_bfi mn sz (lsb, width) =
-  let idt = check_valid mn (opts_at sz) in
-  let r = rc sz in
-  let descr = unit_descr mn sz (Printf.sprintf "#%d, #%d" lsb width) in
-  let rows =
-    List.map
-      (fun (x, y) ->
-        let out =
-          eval_w descr idt
-            [
-              vword sz x;
-              vword sz y;
-              vword Wsize.U8 (Z.of_int lsb);
-              vword Wsize.U8 (Z.of_int width);
-            ]
-        in
-        row ~in0:x ~in1:y ~out ())
-      (small_pairs sz)
-  in
-  add_unit
-    {
-      name = unit_name mn sz (Printf.sprintf "l%d_w%d" lsb width);
-      descr;
-      template =
-        Printf.sprintf "%s %%%s[out], %%%s[in1], #%d, #%d" (lmn mn) r r lsb
-          width;
-      harness = Out_in0;
-      ins = [ 1 ];
-      has_fin = false;
-      has_fout = false;
-      rows;
-    }
-
-(* --- EXTR -------------------------------------------------------------- *)
-
-let mk_extr sz lsb =
-  let mn = A.EXTR in
-  let idt = check_valid mn (opts_at sz) in
-  let r = rc sz in
-  let descr = unit_descr mn sz (Printf.sprintf "#%d" lsb) in
-  let rows =
-    List.map
-      (fun (a, b) ->
-        let out =
-          eval_w descr idt
-            [ vword sz a; vword sz b; vword Wsize.U8 (Z.of_int lsb) ]
-        in
-        row ~in0:a ~in1:b ~out ())
-      (small_pairs sz)
-  in
-  add_unit
-    {
-      name = unit_name mn sz (Printf.sprintf "l%d" lsb);
-      descr;
-      template =
-        Printf.sprintf "%s %%%s[out], %%%s[in0], %%%s[in1], #%d" (lmn mn) r r
-          r lsb;
-      harness = Out;
-      ins = [ 0; 1 ];
       has_fin = false;
       has_fout = false;
       rows;
@@ -836,30 +642,6 @@ let mk_csel mn sz =
       rows;
     }
 
-let mk_cset mn sz =
-  let idt = check_valid mn (opts_at sz) in
-  let r = rc sz in
-  let descr = unit_descr mn sz "(cond NE)" in
-  let rows =
-    List.map
-      (fun cond ->
-        let out = eval_w descr idt [ vbool cond ] in
-        row ~fin:(fin_of_ne_bool cond) ~out ())
-      [ false; true ]
-  in
-  add_unit
-    {
-      name = unit_name mn sz "";
-      descr;
-      template =
-        Printf.sprintf "msr nzcv, %%x[fin]\\n\\t%s %%%s[out], ne" (lmn mn) r;
-      harness = Out;
-      ins = [];
-      has_fin = true;
-      has_fout = false;
-      rows;
-    }
-
 (* --- extensions --------------------------------------------------------- *)
 
 (* [in_ws] is the width of the extracted low bits; the source register is
@@ -964,9 +746,9 @@ let mk_store mn sz ~wacc ~src_w =
 let encodable_shift_kinds mn =
   let open Shift_kind in
   match mn with
-  | A.ADD | A.ADDS | A.SUB | A.SUBS | A.NEG | A.CMP | A.CMN ->
+  | A.ADD | A.ADDS | A.SUB | A.SUBS | A.NEG | A.CMP ->
       [ SLSL; SLSR; SASR ]
-  | A.AND | A.ANDS | A.BIC | A.BICS | A.ORR | A.EOR | A.MVN | A.TST ->
+  | A.AND | A.ORR | A.EOR | A.MVN | A.TST ->
       [ SLSL; SLSR; SASR; SROR ]
   | _ -> assert false
 
@@ -1079,7 +861,7 @@ let mk_shifted_variants mn sz =
       List.iter
         (fun amt ->
           match mn with
-          | A.CMP | A.CMN | A.TST -> mk_shifted_cmp mn sz sk amt
+          | A.CMP | A.TST -> mk_shifted_cmp mn sz sk amt
           | A.NEG | A.MVN -> mk_shifted_unop mn sz sk amt
           | _ -> mk_shifted_binop mn sz sk amt)
         (shifted_amounts sz))
@@ -1093,27 +875,18 @@ let build_units mn sz =
   (* Arithmetic *)
   | A.ADD | A.SUB -> mk_binop mn sz
   | A.ADDS | A.SUBS -> mk_binop_s mn sz
-  | A.ADC | A.SBC -> mk_carry mn sz ~set_flags:false
-  | A.ADCS | A.SBCS -> mk_carry mn sz ~set_flags:true
+  | A.ADC -> mk_carry mn sz ~set_flags:false
+  | A.ADCS -> mk_carry mn sz ~set_flags:true
   | A.NEG -> mk_unop mn sz
   | A.MUL | A.SDIV | A.UDIV -> mk_binop mn sz
   | A.MADD | A.MSUB -> mk_madd mn sz
-  | A.UMULL | A.SMULL -> mk_mull mn
-  | A.UMADDL | A.SMADDL -> mk_maddl mn
-  | A.UMULH | A.SMULH -> mk_binop mn sz
   (* Logical *)
-  | A.AND | A.BIC | A.ORR | A.EOR -> mk_binop mn sz
-  | A.ANDS | A.BICS -> mk_binop_s mn sz
+  | A.AND | A.ORR | A.EOR -> mk_binop mn sz
   | A.MVN -> mk_unop mn sz
   (* Shifts *)
   | A.ASR | A.LSL | A.LSR | A.ROR ->
       mk_shift_reg mn sz;
       List.iter (fun amt -> mk_shift_imm mn sz amt) (imm_shift_amounts sz)
-  (* Bit fields *)
-  | A.BFC -> List.iter (fun p -> mk_bfc sz p) (bf_pairs sz)
-  | A.BFI | A.BFXIL -> List.iter (fun p -> mk_bfi mn sz p) (bf_pairs sz)
-  | A.SBFX | A.UBFX -> List.iter (fun p -> mk_bfx mn sz p) (bf_pairs sz)
-  | A.EXTR -> List.iter (fun l -> mk_extr sz l) (extr_lsbs sz)
   (* Moves *)
   | A.MOV -> mk_unop mn sz
   | A.MOVZ | A.MOVN ->
@@ -1139,13 +912,10 @@ let build_units mn sz =
   | A.UXTB -> mk_extend mn sz ~in_ws:Wsize.U8 ~signed:false
   | A.UXTH -> mk_extend mn sz ~in_ws:Wsize.U16 ~signed:false
   | A.UXTW -> mk_extend mn sz ~in_ws:Wsize.U32 ~signed:false
-  (* Bit manipulation *)
-  | A.RBIT | A.REV | A.REV16 | A.REV32 | A.CLZ | A.CLS -> mk_unop mn sz
   (* Comparisons *)
-  | A.CMP | A.CMN | A.TST -> mk_cmp mn sz
+  | A.CMP | A.TST -> mk_cmp mn sz
   (* Conditional selection *)
-  | A.CSEL | A.CSINC | A.CSINV | A.CSNEG -> mk_csel mn sz
-  | A.CSET | A.CSETM -> mk_cset mn sz
+  | A.CSEL -> mk_csel mn sz
   (* Loads *)
   | A.LDR -> mk_load mn sz ~wacc:sz ~dst_w:(sz = Wsize.U32)
   | A.LDRB -> mk_load mn sz ~wacc:Wsize.U8 ~dst_w:true
@@ -1334,13 +1104,12 @@ let () =
      form, hence not executable";
   add_skip
     "shifted-register variants with shift kinds A64 cannot encode (ROR on \
-     the ADD/SUB/CMP/CMN/NEG class): accepted by armv8a_options but not \
+     the ADD/SUB/CMP/NEG class): accepted by armv8a_options but not \
      assemblable";
   add_skip
-    "condition codes other than NE for CSEL/CSINC/CSINV/CSNEG/CSET/CSETM: \
-     condition decoding happens in arm_eval_cond outside \
-     armv8a_instr_decl.v; their id_semi booleans are driven both ways \
-     through the Z flag";
+    "condition codes other than NE for CSEL: condition decoding happens in \
+     arm_eval_cond outside armv8a_instr_decl.v; its id_semi boolean is \
+     driven both ways through the Z flag";
   emit_c stdout;
   let us = !units in
   Printf.eprintf

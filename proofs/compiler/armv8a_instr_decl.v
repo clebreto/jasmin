@@ -78,8 +78,6 @@ Variant armv8a_mnemonic : Type :=
 | ADCS                           (* Add with carry, setting flags *)
 | SUB                            (* Subtract without carry *)
 | SUBS                           (* Subtract without carry, setting flags *)
-| SBC                            (* Subtract with carry *)
-| SBCS                           (* Subtract with carry, setting flags *)
 | NEG                            (* Negate *)
 | MUL                            (* Multiply and write the least significant
                                     bits of the result *)
@@ -87,18 +85,9 @@ Variant armv8a_mnemonic : Type :=
 | MSUB                           (* Multiply and subtract *)
 | SDIV                           (* Signed division *)
 | UDIV                           (* Unsigned division *)
-| UMULL                          (* Unsigned multiply 32x32 -> 64 *)
-| SMULL                          (* Signed multiply 32x32 -> 64 *)
-| UMADDL                         (* Unsigned multiply-add 32x32+64 -> 64 *)
-| SMADDL                         (* Signed multiply-add 32x32+64 -> 64 *)
-| UMULH                          (* Unsigned multiply, high 64 bits *)
-| SMULH                          (* Signed multiply, high 64 bits *)
 
 (* Logical *)
 | AND                            (* Bitwise AND *)
-| ANDS                           (* Bitwise AND, setting flags *)
-| BIC                            (* Bitwise AND with bitwise NOT *)
-| BICS                           (* Bitwise AND with bitwise NOT, setting flags *)
 | ORR                            (* Bitwise OR *)
 | EOR                            (* Bitwise XOR *)
 | MVN                            (* Bitwise NOT *)
@@ -110,12 +99,6 @@ Variant armv8a_mnemonic : Type :=
 | ROR                            (* Rotate right *)
 
 (* Bit field operations *)
-| BFC                            (* Bitfield clear *)
-| BFI                            (* Bitfield insert *)
-| BFXIL                          (* Bitfield extract and insert at low end *)
-| SBFX                           (* Signed bitfield extract *)
-| UBFX                           (* Unsigned bitfield extract *)
-| EXTR                           (* Extract register from a register pair *)
 
 (* Other data processing instructions *)
 | MOV                            (* Copy operand to destination *)
@@ -129,25 +112,13 @@ Variant armv8a_mnemonic : Type :=
 | UXTB                           (* Zero extend byte *)
 | UXTH                           (* Zero extend halfword *)
 | UXTW                           (* Zero extend word *)
-| RBIT                           (* Reverse bits *)
-| REV                            (* Byte-reverse register *)
-| REV16                          (* Byte-reverse 16-bit halfwords *)
-| REV32                          (* Byte-reverse 32-bit words *)
-| CLZ                            (* Count leading zeros *)
-| CLS                            (* Count leading sign bits *)
 
 (* Comparisons *)
 | CMP                            (* Compare *)
-| CMN                            (* Compare negative *)
 | TST                            (* Test *)
 
 (* Conditional selection *)
 | CSEL                           (* Conditional select *)
-| CSINC                          (* Conditional select increment *)
-| CSINV                          (* Conditional select invert *)
-| CSNEG                          (* Conditional select negate *)
-| CSET                           (* Conditional set *)
-| CSETM                          (* Conditional set mask *)
 
 (* Loads *)
 | LDR                            (* Load a word or doubleword *)
@@ -169,17 +140,14 @@ Instance eqTC_armv8a_mnemonic : eqTypeC armv8a_mnemonic :=
 Canonical armv8a_mnemonic_eqType := @ceqT_eqType _ eqTC_armv8a_mnemonic.
 
 Definition armv8a_mnemonics : seq armv8a_mnemonic :=
-  [:: ADD; ADDS; ADC; ADCS; SUB; SUBS; SBC; SBCS; NEG
+  [:: ADD; ADDS; ADC; ADCS; SUB; SUBS; NEG
     ; MUL; MADD; MSUB; SDIV; UDIV
-    ; UMULL; SMULL; UMADDL; SMADDL; UMULH; SMULH
-    ; AND; ANDS; BIC; BICS; ORR; EOR; MVN
+    ; AND; ORR; EOR; MVN
     ; ASR; LSL; LSR; ROR
-    ; BFC; BFI; BFXIL; SBFX; UBFX; EXTR
     ; MOV; MOVN; MOVZ; MOVK; ADR
     ; SXTB; SXTH; SXTW; UXTB; UXTH; UXTW
-    ; RBIT; REV; REV16; REV32; CLZ; CLS
-    ; CMP; CMN; TST
-    ; CSEL; CSINC; CSINV; CSNEG; CSET; CSETM
+    ; CMP; TST
+    ; CSEL
     ; LDR; LDRB; LDRH; LDRSB; LDRSH; LDRSW
     ; STR; STRB; STRH
   ].
@@ -199,16 +167,16 @@ Canonical armv8a_mnemonic_finType := @cfinT_finType _ finTC_armv8a_mnemonic.
 (* Mnemonics whose last register operand can be optionally shifted. *)
 Definition has_shift_mnemonics : seq armv8a_mnemonic :=
   [:: ADD; ADDS; SUB; SUBS; NEG
-    ; AND; ANDS; BIC; BICS; ORR; EOR; MVN
-    ; CMP; CMN; TST
+    ; AND; ORR; EOR; MVN
+    ; CMP; TST
   ].
 
-(* The arithmetic instructions (ADD/ADDS/SUB/SUBS/NEG/CMP/CMN) only admit
+(* The arithmetic instructions (ADD/ADDS/SUB/SUBS/NEG/CMP) only admit
    LSL, LSR and ASR on their shifted-register operand; ROR is reserved
    (C6.2.5 "ADD (shifted register)"). The logical instructions admit all
    four shifts (C6.2.14 "AND (shifted register)"). *)
 Definition ror_shift_mnemonics : seq armv8a_mnemonic :=
-  [:: AND; ANDS; BIC; BICS; ORR; EOR; MVN; TST ].
+  [:: AND; ORR; EOR; MVN; TST ].
 
 Definition shift_allowed (mn : armv8a_mnemonic) (sk : shift_kind) : bool :=
   if sk is SROR then mn \in ror_shift_mnemonics else true.
@@ -216,16 +184,14 @@ Definition shift_allowed (mn : armv8a_mnemonic) (sk : shift_kind) : bool :=
 (* Mnemonics available in both the 32-bit (W) and 64-bit (X) forms; the
    remaining mnemonics are only valid with [opts_size = U64]. *)
 Definition sized_mnemonics : seq armv8a_mnemonic :=
-  [:: ADD; ADDS; ADC; ADCS; SUB; SUBS; SBC; SBCS; NEG
+  [:: ADD; ADDS; ADC; ADCS; SUB; SUBS; NEG
     ; MUL; MADD; MSUB; SDIV; UDIV
-    ; AND; ANDS; BIC; BICS; ORR; EOR; MVN
+    ; AND; ORR; EOR; MVN
     ; ASR; LSL; LSR; ROR
-    ; BFC; BFI; BFXIL; SBFX; UBFX; EXTR
     ; MOV; MOVN; MOVZ; MOVK
     ; SXTB; SXTH; UXTB; UXTH
-    ; RBIT; REV; REV16; CLZ; CLS
-    ; CMP; CMN; TST
-    ; CSEL; CSINC; CSINV; CSNEG; CSET; CSETM
+    ; CMP; TST
+    ; CSEL
     ; LDR; LDRB; LDRH; LDRSB; LDRSH
     ; STR; STRB; STRH
   ].
@@ -276,24 +242,13 @@ Definition string_of_armv8a_mnemonic (mn : armv8a_mnemonic) : string :=
   | ADCS => "ADCS"
   | SUB => "SUB"
   | SUBS => "SUBS"
-  | SBC => "SBC"
-  | SBCS => "SBCS"
   | NEG => "NEG"
   | MUL => "MUL"
   | MADD => "MADD"
   | MSUB => "MSUB"
   | SDIV => "SDIV"
   | UDIV => "UDIV"
-  | UMULL => "UMULL"
-  | SMULL => "SMULL"
-  | UMADDL => "UMADDL"
-  | SMADDL => "SMADDL"
-  | UMULH => "UMULH"
-  | SMULH => "SMULH"
   | AND => "AND"
-  | ANDS => "ANDS"
-  | BIC => "BIC"
-  | BICS => "BICS"
   | ORR => "ORR"
   | EOR => "EOR"
   | MVN => "MVN"
@@ -301,12 +256,6 @@ Definition string_of_armv8a_mnemonic (mn : armv8a_mnemonic) : string :=
   | LSL => "LSL"
   | LSR => "LSR"
   | ROR => "ROR"
-  | BFC => "BFC"
-  | BFI => "BFI"
-  | BFXIL => "BFXIL"
-  | SBFX => "SBFX"
-  | UBFX => "UBFX"
-  | EXTR => "EXTR"
   | MOV => "MOV"
   | MOVN => "MOVN"
   | MOVZ => "MOVZ"
@@ -318,21 +267,9 @@ Definition string_of_armv8a_mnemonic (mn : armv8a_mnemonic) : string :=
   | UXTB => "UXTB"
   | UXTH => "UXTH"
   | UXTW => "UXTW"
-  | RBIT => "RBIT"
-  | REV => "REV"
-  | REV16 => "REV16"
-  | REV32 => "REV32"
-  | CLZ => "CLZ"
-  | CLS => "CLS"
   | CMP => "CMP"
-  | CMN => "CMN"
   | TST => "TST"
   | CSEL => "CSEL"
-  | CSINC => "CSINC"
-  | CSINV => "CSINV"
-  | CSNEG => "CSNEG"
-  | CSET => "CSET"
-  | CSETM => "CSETM"
   | LDR => "LDR"
   | LDRB => "LDRB"
   | LDRH => "LDRH"
@@ -871,42 +808,6 @@ Definition armv8a_ADCS_semi {ws : wsize} (wn wm : word ws) (cf : bool) : ty_nzcv
     (wsigned wn + wsigned wm + c)%Z.
 
 Definition armv8a_ADCS_instr : instr_desc_t := mk_carrys_instr ADCS armv8a_ADCS_semi.
-(* [C6.2.351 SBC] ARM DDI 0487 M.a, p. 2548
-   Subtract with carry  This instruction subtracts a register value and the
-   value of NOT (Carry flag) from a register value, and writes the result to
-   the destination register.  This instruction is used by the alias NGC.
-   Syntax: SBC <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = NOT(X[m, datasize]);
-     bits(datasize) result;
-     (result, -) = AddWithCarry(operand1, operand2, PSTATE.C);
-     X[d, datasize] = result;
-*)
-Definition armv8a_SBC_semi {ws : wsize} (wn wm : word ws) (cf : bool) : ty_w ws :=
-  armv8a_ADC_semi wn (wnot wm) cf.
-
-Definition armv8a_SBC_instr : instr_desc_t := mk_carry_instr SBC armv8a_SBC_semi.
-(* [C6.2.352 SBCS] ARM DDI 0487 M.a, p. 2550
-   Subtract with carry, setting flags  This instruction subtracts a register
-   value and the value of NOT (Carry flag) from a register value, and writes
-   the result to the destination register. It updates the condition flags based
-   on the result.  This instruction is used by the alias NGCS.
-   Syntax: SBCS <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = NOT(X[m, datasize]);
-     bits(datasize) result;
-     bits(4) nzcv;
-     (result, nzcv) = AddWithCarry(operand1, operand2, PSTATE.C);
-     X[d, datasize] = result;
-     PSTATE.<N,Z,C,V> = nzcv;
-*)
-Definition armv8a_SBCS_semi {ws : wsize} (wn wm : word ws) (cf : bool) : ty_nzcv_w ws :=
-  armv8a_ADCS_semi wn (wnot wm) cf.
-
-Definition armv8a_SBCS_instr : instr_desc_t := mk_carrys_instr SBCS armv8a_SBCS_semi.
-
 (* [C6.2.294 NEG (shifted register)] ARM DDI 0487 M.a, p. 2440
    Negate (shifted register)  This instruction negates an optionally-shifted
    register value, and writes the result to the destination register.  This is
@@ -1106,177 +1007,6 @@ Definition armv8a_MSUB_semi {ws : wsize} (wn wm wa : word ws) : ty_w ws :=
 
 Definition armv8a_MSUB_instr : instr_desc_t := mk_madd_instr MSUB armv8a_MSUB_semi.
 
-(* 32x32 -> 64 multiplies (X form only). *)
-Definition mk_mull_instr mn (semi : word U32 -> word U32 -> ty_r)
-  : instr_desc_t :=
-  let tin := [:: lword U32; lword U32 ] in
-  {|
-    id_msb_flag := MSB_MERGE;
-    id_tin := tin;
-    id_in := [:: Ea 1; Ea 2 ];
-    id_tout := [:: lreg ];
-    id_out := [:: Ea 0 ];
-    id_semi := sem_lprod_ok tin semi;
-    id_nargs := 3;
-    id_args_kinds := ak_rrr;
-    id_eq_size := refl_equal;
-    id_check_dest := refl_equal;
-    id_str_jas := armv8a_mn_str mn;
-    id_safe := [::];
-    (* [UMULL <Xd>, <Wn>, <Wm>]: the sources are always W registers. *)
-    id_pp_asm := pp_armv8a_op_szs mn [:: osz; U32; U32 ];
-    id_valid := osz == U64;
-    id_safe_wf := refl_equal;
-    id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
-    id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
-  |}.
-
-(* [C6.2.498 UMULL] ARM DDI 0487 M.a, p. 2862
-   Unsigned multiply long  This instruction multiplies two 32-bit register
-   values, and writes the result to the 64-bit destination register.  This is
-   an alias of UMADDL. This means:  • The encodings in this description are
-   named to match the encodings of UMADDL. • The description of UMADDL gives
-   the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any
-   operational information for this instruction.
-   Note: UMULL is an alias of UMADDL with Ra = XZR.
-   Syntax: UMULL <Xd>, <Wn>, <Wm>  ==  UMADDL <Xd>, <Wn>, <Wm>, XZR
-   Operation (ASL):
-     The description of UMADDL gives the operational pseudocode for this instruction.
-*)
-Definition armv8a_UMULL_semi (wn wm : word U32) : ty_r :=
-  (zero_extend U64 wn * zero_extend U64 wm)%w.
-
-Definition armv8a_UMULL_instr : instr_desc_t := mk_mull_instr UMULL armv8a_UMULL_semi.
-(* [C6.2.379 SMULL] ARM DDI 0487 M.a, p. 2616
-   Signed multiply long  This instruction multiplies two 32-bit register
-   values, and writes the result to the 64-bit destination register.  This is
-   an alias of SMADDL. This means:  • The encodings in this description are
-   named to match the encodings of SMADDL. • The description of SMADDL gives
-   the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any
-   operational information for this instruction.
-   Note: SMULL is an alias of SMADDL with Ra = XZR.
-   Syntax: SMULL <Xd>, <Wn>, <Wm>  ==  SMADDL <Xd>, <Wn>, <Wm>, XZR
-   Operation (ASL):
-     The description of SMADDL gives the operational pseudocode for this instruction.
-*)
-Definition armv8a_SMULL_semi (wn wm : word U32) : ty_r :=
-  (sign_extend U64 wn * sign_extend U64 wm)%w.
-
-Definition armv8a_SMULL_instr : instr_desc_t := mk_mull_instr SMULL armv8a_SMULL_semi.
-
-Definition mk_maddl_instr mn (semi : word U32 -> word U32 -> word U64 -> ty_r)
-  : instr_desc_t :=
-  let tin := [:: lword U32; lword U32; lreg ] in
-  {|
-    id_msb_flag := MSB_MERGE;
-    id_tin := tin;
-    id_in := [:: Ea 1; Ea 2; Ea 3 ];
-    id_tout := [:: lreg ];
-    id_out := [:: Ea 0 ];
-    id_semi := sem_lprod_ok tin semi;
-    id_nargs := 4;
-    id_args_kinds := ak_rrrr;
-    id_eq_size := refl_equal;
-    id_check_dest := refl_equal;
-    id_str_jas := armv8a_mn_str mn;
-    id_safe := [::];
-    (* [UMADDL <Xd>, <Wn>, <Wm>, <Xa>]: the multiply sources are always W
-       registers. *)
-    id_pp_asm := pp_armv8a_op_szs mn [:: osz; U32; U32; osz ];
-    id_valid := osz == U64;
-    id_safe_wf := refl_equal;
-    id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
-    id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
-  |}.
-
-(* [C6.2.490 UMADDL] ARM DDI 0487 M.a, p. 2848
-   Unsigned multiply-add long  This instruction multiplies two 32-bit register
-   values, adds a 64-bit register value, and writes the result to the 64-bit
-   destination register.  This instruction is used by the alias UMULL.
-   Syntax: UMADDL <Xd>, <Wn>, <Wm>, <Xa>
-   Operation (ASL):
-     constant bits(32) operand1 = X[n, 32];
-     constant bits(32) operand2 = X[m, 32];
-     constant bits(64) operand3 = X[a, 64];
-     constant integer result = UInt(operand3) + (UInt(operand1) * UInt(operand2));
-     X[d, 64] = result<63:0>;
-*)
-Definition armv8a_UMADDL_semi (wn wm : word U32) (wa : word U64) : ty_r :=
-  (wa + zero_extend U64 wn * zero_extend U64 wm)%w.
-
-Definition armv8a_UMADDL_instr : instr_desc_t := mk_maddl_instr UMADDL armv8a_UMADDL_semi.
-(* [C6.2.368 SMADDL] ARM DDI 0487 M.a, p. 2599
-   Signed multiply-add long  This instruction multiplies two 32-bit register
-   values, adds a 64-bit register value, and writes the result to the 64-bit
-   destination register.  This instruction is used by the alias SMULL.
-   Syntax: SMADDL <Xd>, <Wn>, <Wm>, <Xa>
-   Operation (ASL):
-     constant bits(32) operand1 = X[n, 32];
-     constant bits(32) operand2 = X[m, 32];
-     constant bits(64) operand3 = X[a, 64];
-     constant integer result = SInt(operand3) + (SInt(operand1) * SInt(operand2));
-     X[d, 64] = result<63:0>;
-*)
-Definition armv8a_SMADDL_semi (wn wm : word U32) (wa : word U64) : ty_r :=
-  (wa + sign_extend U64 wn * sign_extend U64 wm)%w.
-
-Definition armv8a_SMADDL_instr : instr_desc_t := mk_maddl_instr SMADDL armv8a_SMADDL_semi.
-
-(* High 64 bits of a 64x64 multiply (X form only). *)
-Definition mk_mulh_instr mn (semi : word U64 -> word U64 -> ty_r)
-  : instr_desc_t :=
-  let tin := [:: lreg; lreg ] in
-  {|
-    id_msb_flag := MSB_MERGE;
-    id_tin := tin;
-    id_in := [:: Ea 1; Ea 2 ];
-    id_tout := [:: lreg ];
-    id_out := [:: Ea 0 ];
-    id_semi := sem_lprod_ok tin semi;
-    id_nargs := 3;
-    id_args_kinds := ak_rrr;
-    id_eq_size := refl_equal;
-    id_check_dest := refl_equal;
-    id_str_jas := armv8a_mn_str mn;
-    id_safe := [::];
-    id_pp_asm := pp_armv8a_op mn opts;
-    id_valid := osz == U64;
-    id_safe_wf := refl_equal;
-    id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
-    id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
-  |}.
-
-(* [C6.2.497 UMULH] ARM DDI 0487 M.a, p. 2861
-   Unsigned multiply high  This instruction multiplies two 64-bit register
-   values, and writes bits[127:64] of the 128-bit result to the 64-bit
-   destination register.
-   Syntax: UMULH <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(64) operand1 = X[n, 64];
-     constant bits(64) operand2 = X[m, 64];
-     constant integer result = UInt(operand1) * UInt(operand2);
-     X[d, 64] = result<127:64>;
-*)
-Definition armv8a_UMULH_semi (wn wm : word U64) : ty_r :=
-  (wumul wn wm).1.
-
-Definition armv8a_UMULH_instr : instr_desc_t := mk_mulh_instr UMULH armv8a_UMULH_semi.
-(* [C6.2.378 SMULH] ARM DDI 0487 M.a, p. 2615
-   Signed multiply high  This instruction multiplies two 64-bit register
-   values, and writes bits[127:64] of the 128-bit result to the 64-bit
-   destination register.
-   Syntax: SMULH <Xd>, <Xn>, <Xm>
-   Operation (ASL):
-     constant bits(64) operand1 = X[n, 64];
-     constant bits(64) operand2 = X[m, 64];
-     constant integer result = SInt(operand1) * SInt(operand2);
-     X[d, 64] = result<127:64>;
-*)
-Definition armv8a_SMULH_semi (wn wm : word U64) : ty_r :=
-  wmulhs wn wm.
-
-Definition armv8a_SMULH_instr : instr_desc_t := mk_mulh_instr SMULH armv8a_SMULH_semi.
-
 (* -------------------------------------------------------------------- *)
 (* Bitwise instructions. *)
 
@@ -1300,60 +1030,6 @@ Definition armv8a_bitwise_semi
 *)
 Definition armv8a_AND_instr : instr_desc_t :=
   mk_arith_instr AND bitmask_imm (armv8a_bitwise_semi id id wand).
-
-(* [C6.2.17 ANDS (shifted register)] ARM DDI 0487 M.a, p. 1817
-   Bitwise AND (shifted register), setting flags  This instruction performs a
-   bitwise AND of a register value and an optionally-shifted register value,
-   and writes the result to the destination register. It updates the condition
-   flags based on the result.  This instruction is used by the alias TST
-   (shifted register).
-   Syntax: ANDS <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);
-     constant bits(datasize) result = operand1 AND operand2;
-     X[d, datasize] = result;
-     PSTATE.<N,Z,C,V> = result<datasize-1>:IsZeroBit(result):'00';
-*)
-Definition armv8a_ANDS_semi {ws : wsize} (wn wm : word ws) : ty_nzcv_w ws :=
-  nzcv_w_of_logop (wand wn wm).
-
-Definition armv8a_ANDS_instr : instr_desc_t :=
-  mk_ariths_instr ANDS bitmask_imm armv8a_ANDS_semi.
-
-(* [C6.2.41 BIC (shifted register)] ARM DDI 0487 M.a, p. 1856
-   Bitwise bit clear (shifted register)  This instruction performs a bitwise
-   AND of a register value and the complement of an optionally-shifted register
-   value, and writes the result to the destination register.
-   Syntax: BIC <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);
-     X[d, datasize] = operand1 AND NOT(operand2);
-*)
-(* BIC and BICS have no immediate form in A64 (the assembler does not
-   invert bitmask immediates into AND/ANDS). *)
-Definition armv8a_BIC_instr : instr_desc_t :=
-  mk_arith_instr BIC no_imm (armv8a_bitwise_semi id wnot wand).
-
-(* [C6.2.42 BICS (shifted register)] ARM DDI 0487 M.a, p. 1858
-   Bitwise bit clear (shifted register), setting flags  This instruction
-   performs a bitwise AND of a register value and the complement of an
-   optionally-shifted register value, and writes the result to the destination
-   register. It updates the condition flags based on the result.
-   Syntax: BICS <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);
-     constant bits(datasize) result = operand1 AND NOT(operand2);
-     X[d, datasize] = result;
-     PSTATE.<N,Z,C,V> = result<datasize-1>:IsZeroBit(result):'00';
-*)
-Definition armv8a_BICS_semi {ws : wsize} (wn wm : word ws) : ty_nzcv_w ws :=
-  nzcv_w_of_logop (wand wn (wnot wm)).
-
-Definition armv8a_BICS_instr : instr_desc_t :=
-  mk_ariths_instr BICS no_imm armv8a_BICS_semi.
 
 (* [C6.2.301 ORR (shifted register)] ARM DDI 0487 M.a, p. 2453
    Bitwise OR (shifted register)  This instruction performs a bitwise
@@ -1524,368 +1200,6 @@ Definition armv8a_ROR_instr : instr_desc_t := mk_shift_instr ROR (@wror).
 (* -------------------------------------------------------------------- *)
 (* Bit field instructions. *)
 
-(* [C6.2.37 BFC] ARM DDI 0487 M.a, p. 1848
-   Bitfield clear  This instruction sets a bitfield of <width> bits at bit
-   position <lsb> of the destination register to zero, leaving the other
-   destination bits unchanged.  This is an alias of BFM. This means:  • The
-   encodings in this description are named to match the encodings of BFM. • The
-   description of BFM gives the operational pseudocode, any CONSTRAINED
-   UNPREDICTABLE behavior, and any operational information for this
-   instruction.
-   Syntax: BFC <Xd>, #<lsb>, #<width>  ==  BFM <Xd>, XZR, #(-<lsb> MOD 64), #(<width>-1)
-   Operation (ASL):
-     The description of BFM gives the operational pseudocode for this instruction.
-   Base instruction [C6.2.39 BFM] p. 1852, Operation (ASL):
-     constant bits(datasize) dst = X[d, datasize];
-     constant bits(datasize) src = X[n, datasize];
-     // Perform bitfield move on low bits
-     constant bits(datasize) bot = (dst AND NOT(wmask)) OR (ROR(src, r) AND wmask);
-     // Combine extension bits and result bits
-     X[d, datasize] = (dst AND NOT(tmask)) OR (bot AND tmask);
-*)
-Definition armv8a_BFC_semi (x : word osz) (lsb width : word U8) : exec (ty_w osz) :=
-  let bits := wsize_bits osz in
-  let lsbit := wunsigned lsb in
-  let nbits := wunsigned width in
-  Let _ := assert (lsbit <? bits)%Z E.no_semantics in
-  Let _ := assert (1 <=? nbits)%Z E.no_semantics in
-  Let _ := assert (nbits <=? bits - lsbit)%Z E.no_semantics in
-  let msbit := (lsbit + nbits - 1)%Z in
-  let mk i :=
-    if [&& Z.to_nat lsbit <=? i & i <=? Z.to_nat msbit ]
-    then false
-    else wbit_n x i
-  in
-  ok (winit osz mk).
-
-Definition armv8a_BFC_semi_sc :=
-  [:: ULt U8 1 (wsize_bits osz); UGe U8 1%Z 2; UaddLe U8 2 1 (wsize_bits osz)].
-
-Lemma armv8a_BFC_semi_errty :
-  sem_lforall (fun r : result error (sem_ltuple [:: lword osz ]) => r <> Error ErrType)
-   [:: lword osz; lword8; lword8 ] armv8a_BFC_semi.
-Proof.
-  rewrite /armv8a_BFC_semi => x lsb width.
-  by case: (_ <? _)%Z => //; case: (1 <=? _)%Z => //; case: (_ <=? _)%Z.
-Qed.
-
-Lemma armv8a_BFC_semi_safe :
-  interp_safe_cond_lty [:: lword osz; lword8; lword8 ] armv8a_BFC_semi_sc armv8a_BFC_semi.
-Proof.
-  rewrite /interp_safe_cond_ty /= => x lsb width.
-  move=> /List.Forall_cons_iff /= [] /[swap] /List.Forall_cons_iff /= [] /[swap] /List.Forall_cons_iff /= [].
-  rewrite !truncate_word_u => /(_ _ _ erefl erefl) h3 _ /(_ _ erefl) /ZleP h2 /(_ _ erefl) /ZltP h1.
-  have /ZleP {}h3 : (wunsigned width <= wsize_bits osz - wunsigned lsb)%Z by Lia.lia.
-  rewrite /armv8a_BFC_semi h1 h2 h3 /=; eauto.
-Qed.
-
-Definition armv8a_BFC_instr : instr_desc_t :=
-  let mn := BFC in
-  {|
-    id_msb_flag := msbf;
-    id_tin := [:: lword osz; lword8; lword8 ];
-    id_in := [:: Ea 0; Ea 1; Ea 2 ];
-    id_tout := [:: lword osz ];
-    id_out := [:: Ea 0 ];
-    id_semi := armv8a_BFC_semi;
-    id_nargs := 3;
-    id_args_kinds := ak_r_imm8_imm8;
-    id_eq_size := refl_equal;
-    id_check_dest := refl_equal;
-    id_str_jas := armv8a_mn_str mn;
-    id_safe := armv8a_BFC_semi_sc;
-    id_pp_asm := pp_armv8a_op mn opts;
-    id_valid := osz_valid;
-    id_safe_wf := refl_equal;
-    id_semi_errty := fun _ => armv8a_BFC_semi_errty;
-    id_semi_safe := fun _ => armv8a_BFC_semi_safe;
-  |}.
-
-(* [C6.2.38 BFI] ARM DDI 0487 M.a, p. 1850
-   Bitfield insert  This instruction copies a bitfield of <width> bits from the
-   least significant bits of the source register to bit position <lsb> of the
-   destination register, leaving the other destination bits unchanged.  This is
-   an alias of BFM. This means:  • The encodings in this description are named
-   to match the encodings of BFM. • The description of BFM gives the
-   operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any
-   operational information for this instruction.
-   Syntax: BFI <Xd>, <Xn>, #<lsb>, #<width>  ==  BFM <Xd>, <Xn>, #(-<lsb> MOD 64), #(<width>-1)
-   Operation (ASL):
-     The description of BFM gives the operational pseudocode for this instruction.
-   Base instruction [C6.2.39 BFM] p. 1852, Operation (ASL):
-     constant bits(datasize) dst = X[d, datasize];
-     constant bits(datasize) src = X[n, datasize];
-     // Perform bitfield move on low bits
-     constant bits(datasize) bot = (dst AND NOT(wmask)) OR (ROR(src, r) AND wmask);
-     // Combine extension bits and result bits
-     X[d, datasize] = (dst AND NOT(tmask)) OR (bot AND tmask);
-*)
-Definition armv8a_BFI_semi (x y : word osz) (lsb width : word U8) : exec (ty_w osz) :=
-  let bits := wsize_bits osz in
-  let lsbit := wunsigned lsb in
-  let nbits := wunsigned width in
-  Let _ := assert (lsbit <? bits)%Z E.no_semantics in
-  Let _ := assert (1 <=? nbits)%Z E.no_semantics in
-  Let _ := assert (nbits <=? bits - lsbit)%Z E.no_semantics in
-  let msbit := (lsbit + nbits - 1)%Z in
-  let mk i :=
-    if [&& Z.to_nat lsbit <=? i & i <=? Z.to_nat msbit ]
-    then wbit_n y (i - Z.to_nat lsbit)
-    else wbit_n x i
-  in
-  ok (winit osz mk).
-
-Definition armv8a_BFI_semi_sc :=
-  [:: ULt U8 2 (wsize_bits osz); UGe U8 1%Z 3; UaddLe U8 3 2 (wsize_bits osz)].
-
-Lemma armv8a_BFI_semi_errty :
-  sem_lforall (fun r : result error (sem_ltuple [:: lword osz ]) => r <> Error ErrType)
-   [:: lword osz; lword osz; lword8; lword8 ] armv8a_BFI_semi.
-Proof.
-  rewrite /armv8a_BFI_semi => x y lsb width.
-  by case: (_ <? _)%Z => //; case: (1 <=? _)%Z => //; case: (_ <=? _)%Z.
-Qed.
-
-Lemma armv8a_BFI_semi_safe :
-  interp_safe_cond_lty [:: lword osz; lword osz; lword8; lword8 ] armv8a_BFI_semi_sc armv8a_BFI_semi.
-Proof.
-  rewrite /interp_safe_cond_ty /= => x y lsb width.
-  move=> /List.Forall_cons_iff /= [] /[swap] /List.Forall_cons_iff /= [] /[swap] /List.Forall_cons_iff /= [].
-  rewrite !truncate_word_u => /(_ _ _ erefl erefl) h3 _ /(_ _ erefl) /ZleP h2 /(_ _ erefl) /ZltP h1.
-  have /ZleP {}h3 : (wunsigned width <= wsize_bits osz - wunsigned lsb)%Z by Lia.lia.
-  rewrite /armv8a_BFI_semi h1 h2 h3 /=; eauto.
-Qed.
-
-Definition armv8a_BFI_instr : instr_desc_t :=
-  let mn := BFI in
-  {|
-    id_msb_flag := msbf;
-    id_tin := [:: lword osz; lword osz; lword8; lword8 ];
-    id_in := [:: Ea 0; Ea 1; Ea 2; Ea 3 ];
-    id_tout := [:: lword osz ];
-    id_out := [:: Ea 0 ];
-    id_semi := armv8a_BFI_semi;
-    id_nargs := 4;
-    id_args_kinds := ak_rr_imm8_imm8;
-    id_eq_size := refl_equal;
-    id_check_dest := refl_equal;
-    id_str_jas := armv8a_mn_str mn;
-    id_safe := armv8a_BFI_semi_sc;
-    id_pp_asm := pp_armv8a_op mn opts;
-    id_valid := osz_valid;
-    id_safe_wf := refl_equal;
-    id_semi_errty := fun _ => armv8a_BFI_semi_errty;
-    id_semi_safe := fun _ => armv8a_BFI_semi_safe;
-  |}.
-
-(* [C6.2.40 BFXIL] ARM DDI 0487 M.a, p. 1854
-   Bitfield extract and insert at low end  This instruction copies a bitfield
-   of <width> bits starting from bit position <lsb> in the source register to
-   the least significant bits of the destination register, leaving the other
-   destination bits unchanged.  This is an alias of BFM. This means:  • The
-   encodings in this description are named to match the encodings of BFM. • The
-   description of BFM gives the operational pseudocode, any CONSTRAINED
-   UNPREDICTABLE behavior, and any operational information for this
-   instruction.
-   Syntax: BFXIL <Xd>, <Xn>, #<lsb>, #<width>  ==  BFM <Xd>, <Xn>, #<lsb>, #(<lsb>+<width>-1)
-   Operation (ASL):
-     The description of BFM gives the operational pseudocode for this instruction.
-   Base instruction [C6.2.39 BFM] p. 1852, Operation (ASL):
-     constant bits(datasize) dst = X[d, datasize];
-     constant bits(datasize) src = X[n, datasize];
-     // Perform bitfield move on low bits
-     constant bits(datasize) bot = (dst AND NOT(wmask)) OR (ROR(src, r) AND wmask);
-     // Combine extension bits and result bits
-     X[d, datasize] = (dst AND NOT(tmask)) OR (bot AND tmask);
-*)
-Definition armv8a_BFXIL_semi (x y : word osz) (lsb width : word U8) : exec (ty_w osz) :=
-  let bits := wsize_bits osz in
-  let lsbit := wunsigned lsb in
-  let nbits := wunsigned width in
-  Let _ := assert (lsbit <? bits)%Z E.no_semantics in
-  Let _ := assert (1 <=? nbits)%Z E.no_semantics in
-  Let _ := assert (nbits <=? bits - lsbit)%Z E.no_semantics in
-  let mk i :=
-    if (i <? Z.to_nat nbits)%nat
-    then wbit_n y (i + Z.to_nat lsbit)
-    else wbit_n x i
-  in
-  ok (winit osz mk).
-
-Definition armv8a_BFXIL_semi_sc :=
-  [:: ULt U8 2 (wsize_bits osz); UGe U8 1%Z 3; UaddLe U8 3 2 (wsize_bits osz)].
-
-Lemma armv8a_BFXIL_semi_errty :
-  sem_lforall (fun r : result error (sem_ltuple [:: lword osz ]) => r <> Error ErrType)
-   [:: lword osz; lword osz; lword8; lword8 ] armv8a_BFXIL_semi.
-Proof.
-  rewrite /armv8a_BFXIL_semi => x y lsb width.
-  by case: (_ <? _)%Z => //; case: (1 <=? _)%Z => //; case: (_ <=? _)%Z.
-Qed.
-
-Lemma armv8a_BFXIL_semi_safe :
-  interp_safe_cond_lty [:: lword osz; lword osz; lword8; lword8 ] armv8a_BFXIL_semi_sc armv8a_BFXIL_semi.
-Proof.
-  rewrite /interp_safe_cond_ty /= => x y lsb width.
-  move=> /List.Forall_cons_iff /= [] /[swap] /List.Forall_cons_iff /= [] /[swap] /List.Forall_cons_iff /= [].
-  rewrite !truncate_word_u => /(_ _ _ erefl erefl) h3 _ /(_ _ erefl) /ZleP h2 /(_ _ erefl) /ZltP h1.
-  have /ZleP {}h3 : (wunsigned width <= wsize_bits osz - wunsigned lsb)%Z by Lia.lia.
-  rewrite /armv8a_BFXIL_semi h1 h2 h3 /=; eauto.
-Qed.
-
-Definition armv8a_BFXIL_instr : instr_desc_t :=
-  let mn := BFXIL in
-  {|
-    id_msb_flag := msbf;
-    id_tin := [:: lword osz; lword osz; lword8; lword8 ];
-    id_in := [:: Ea 0; Ea 1; Ea 2; Ea 3 ];
-    id_tout := [:: lword osz ];
-    id_out := [:: Ea 0 ];
-    id_semi := armv8a_BFXIL_semi;
-    id_nargs := 4;
-    id_args_kinds := ak_rr_imm8_imm8;
-    id_eq_size := refl_equal;
-    id_check_dest := refl_equal;
-    id_str_jas := armv8a_mn_str mn;
-    id_safe := armv8a_BFXIL_semi_sc;
-    id_pp_asm := pp_armv8a_op mn opts;
-    id_valid := osz_valid;
-    id_safe_wf := refl_equal;
-    id_semi_errty := fun _ => armv8a_BFXIL_semi_errty;
-    id_semi_safe := fun _ => armv8a_BFXIL_semi_safe;
-  |}.
-
-Definition bit_field_extract_semi
-  (shr : word osz -> Z -> word osz) (wn : word osz) (widx wwidth : word U8) : exec (ty_w osz) :=
-  let bits := wsize_bits osz in
-  let idx := wunsigned widx in
-  let width := wunsigned wwidth in
-  Let _ := assert [&& 1 <=? width & width <? bits + 1 - idx]%Z E.no_semantics in
-  ok (shr (wshl wn (bits - width - idx)%Z) (bits - width)%Z).
-
-Definition bit_field_extract_semi_sc :=
-  [:: UGe U8 1%Z 2; UaddLe U8 2 1 (wsize_bits osz)].
-
-Lemma bit_field_extract_semi_errty shr :
-  sem_lforall (fun r : result error (sem_ltuple [:: lword osz ]) => r <> Error ErrType)
-   [:: lword osz; lword8; lword8 ] (bit_field_extract_semi shr).
-Proof. by rewrite /bit_field_extract_semi => x lsb width; case: andP. Qed.
-
-Lemma bit_field_extract_semi_safe shr :
-  interp_safe_cond_lty [:: lword osz; lword8; lword8 ] bit_field_extract_semi_sc (bit_field_extract_semi shr).
-Proof.
-  rewrite /interp_safe_cond_ty /= => x lsb width.
-  move=> /List.Forall_cons_iff /= [] /[swap] /List.Forall_cons_iff /= [].
-  rewrite !truncate_word_u => /(_ _ _ erefl erefl) h2 _ /(_ _ erefl) /ZleP h1.
-  have /ZltP {}h2 : (wunsigned width < wsize_bits osz + 1 - wunsigned lsb)%Z by Lia.lia.
-  rewrite /bit_field_extract_semi h1 h2 /=; eauto.
-Qed.
-
-Definition mk_bfx_instr mn (shr : word osz -> Z -> word osz) : instr_desc_t :=
-  {|
-    id_msb_flag := msbf;
-    id_tin := [:: lword osz; lword U8; lword U8 ];
-    id_in := [:: Ea 1; Ea 2; Ea 3 ];
-    id_tout := [:: lword osz ];
-    id_out := [:: Ea 0 ];
-    id_semi := bit_field_extract_semi shr;
-    id_nargs := 4;
-    id_args_kinds := ak_rr_imm_imm_extr;
-    id_eq_size := refl_equal;
-    id_check_dest := refl_equal;
-    id_str_jas := armv8a_mn_str mn;
-    id_safe := bit_field_extract_semi_sc;
-    id_pp_asm := pp_armv8a_op mn opts;
-    id_valid := osz_valid;
-    id_safe_wf := refl_equal;
-    id_semi_errty := fun _ => @bit_field_extract_semi_errty shr;
-    id_semi_safe := fun _ => @bit_field_extract_semi_safe shr;
-  |}.
-
-(* [C6.2.355 SBFX] ARM DDI 0487 M.a, p. 2556
-   Signed bitfield extract  This instruction copies a bitfield of <width> bits
-   starting from bit position <lsb> in the source register to the least
-   significant bits of the destination register, and sets destination bits
-   above the bitfield to a copy of the most significant bit of the bitfield.
-   This is an alias of SBFM. This means:  • The encodings in this description
-   are named to match the encodings of SBFM. • The description of SBFM gives
-   the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any
-   operational information for this instruction.
-   Syntax: SBFX <Xd>, <Xn>, #<lsb>, #<width>  ==  SBFM <Xd>, <Xn>, #<lsb>, #(<lsb>+<width>-1)
-   Operation (ASL):
-     The description of SBFM gives the operational pseudocode for this instruction.
-   Base instruction [C6.2.354 SBFM] p. 2554, Operation (ASL):
-     constant bits(datasize) src = X[n, datasize];
-     // Perform bitfield move on low bits
-     constant bits(datasize) bot = ROR(src, r) AND wmask;
-     constant bits(datasize) top = Replicate(src<s>, datasize);
-     // Combine extension bits and result bits
-     X[d, datasize] = (top AND NOT(tmask)) OR (bot AND tmask);
-*)
-Definition armv8a_SBFX_instr : instr_desc_t := mk_bfx_instr SBFX (wsar (sz := osz)).
-(* [C6.2.487 UBFX] ARM DDI 0487 M.a, p. 2843
-   Unsigned bitfield extract  This instruction copies a bitfield of <width>
-   bits starting from bit position <lsb> in the source register to the least
-   significant bits of the destination register, and sets destination bits
-   above the bitfield to zero.  This is an alias of UBFM. This means:  • The
-   encodings in this description are named to match the encodings of UBFM. •
-   The description of UBFM gives the operational pseudocode, any CONSTRAINED
-   UNPREDICTABLE behavior, and any operational information for this
-   instruction.
-   Syntax: UBFX <Xd>, <Xn>, #<lsb>, #<width>  ==  UBFM <Xd>, <Xn>, #<lsb>, #(<lsb>+<width>-1)
-   Operation (ASL):
-     The description of UBFM gives the operational pseudocode for this instruction.
-   Base instruction [C6.2.486 UBFM] p. 2841, Operation (ASL):
-     constant bits(datasize) src = X[n, datasize];
-     // Perform bitfield move on low bits
-     constant bits(datasize) bot = ROR(src, r) AND wmask;
-     // Combine extension bits and result bits
-     X[d, datasize] = bot AND tmask;
-*)
-Definition armv8a_UBFX_instr : instr_desc_t := mk_bfx_instr UBFX (wshr (sz := osz)).
-
-(* [C6.2.160 EXTR] ARM DDI 0487 M.a, p. 2174
-   Extract register  This instruction extracts a register from a pair of
-   registers.  This instruction is used by the alias ROR (immediate).
-   Syntax: EXTR <Xd>, <Xn>, <Xm>, #<lsb>
-   Operation (ASL):
-     bits(datasize) result;
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant bits(datasize) operand2 = X[m, datasize];
-     constant bits(2*datasize) concat = operand1:operand2;
-     result = concat<(lsb+datasize)-1:lsb>;
-     X[d, datasize] = result;
-*)
-Definition armv8a_EXTR_semi {ws : wsize} (wn wm : word ws) (wlsb : word U8) : ty_w ws :=
-  let bits := wsize_bits ws in
-  let l := (wunsigned wlsb mod bits)%Z in
-  if (l =? 0)%Z
-  then wm
-  else wor (wshr wm l) (wshl wn (bits - l)).
-
-Definition armv8a_EXTR_instr : instr_desc_t :=
-  let mn := EXTR in
-  let tin := [:: lword osz; lword osz; lword U8 ] in
-  let semi := armv8a_EXTR_semi (ws := osz) in
-  {|
-    id_msb_flag := msbf;
-    id_tin := tin;
-    id_in := [:: Ea 1; Ea 2; Ea 3 ];
-    id_tout := [:: lword osz ];
-    id_out := [:: Ea 0 ];
-    id_semi := sem_lprod_ok tin semi;
-    id_nargs := 4;
-    id_args_kinds := ak_rrr_imm_shift;
-    id_eq_size := refl_equal;
-    id_check_dest := refl_equal;
-    id_str_jas := armv8a_mn_str mn;
-    id_safe := [::];
-    id_pp_asm := pp_armv8a_op mn opts;
-    id_valid := osz_valid;
-    id_safe_wf := refl_equal;
-    id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
-    id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
-  |}.
 
 (* -------------------------------------------------------------------- *)
 (* Moves. *)
@@ -2022,40 +1336,6 @@ Definition armv8a_MOVK_instr : instr_desc_t :=
     id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
   |}.
 
-(* [C6.2.12 ADR] ARM DDI 0487 M.a, p. 1809
-   Form PC-relative address  This instruction adds an immediate value to the PC
-   value to form a PC-relative address, and writes the result to the
-   destination register.
-   Syntax: ADR <Xd>, <label>
-   Operation (ASL):
-     X[d, 64] = PC64 + imm;
-*)
-Definition armv8a_ADR_semi (wn : word U64) : ty_r :=
-  wn.
-
-Definition armv8a_ADR_instr : instr_desc_t :=
-  let mn := ADR in
-  let tin := [:: lreg ] in
-  let semi := armv8a_ADR_semi in
-  {|
-    id_msb_flag := MSB_MERGE;
-    id_tin := tin;
-    id_in := [:: Ec 1 ];
-    id_tout := [:: lreg ];
-    id_out := [:: Ea 0 ];
-    id_semi := sem_lprod_ok tin semi;
-    id_nargs := 2;
-    id_args_kinds := ak_reg_addr;
-    id_eq_size := refl_equal;
-    id_check_dest := refl_equal;
-    id_str_jas := armv8a_mn_str mn;
-    id_safe := [::];
-    id_pp_asm := pp_armv8a_op mn opts;
-    id_valid := osz == U64;
-    id_safe_wf := refl_equal;
-    id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
-    id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
-  |}.
 
 (* -------------------------------------------------------------------- *)
 (* Extensions.
@@ -2088,6 +1368,41 @@ Definition mk_extend_instr mn (in_ws : wsize) (sign : bool) (valid : bool)
        register, and so is the destination of the zero-extensions. *)
     id_pp_asm := pp_armv8a_op_szs mn [:: (if sign then osz else U32); U32 ];
     id_valid := valid;
+    id_safe_wf := refl_equal;
+    id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
+    id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
+  |}.
+
+(* [C6.2.12 ADR] ARM DDI 0487 M.a, p. 1809
+   Form PC-relative address  This instruction adds an immediate value to the PC
+   value to form a PC-relative address, and writes the result to the
+   destination register.
+   Syntax: ADR <Xd>, <label>
+   Operation (ASL):
+     X[d, 64] = PC64 + imm;
+*)
+Definition armv8a_ADR_semi (wn : word U64) : ty_r :=
+  wn.
+
+Definition armv8a_ADR_instr : instr_desc_t :=
+  let mn := ADR in
+  let tin := [:: lreg ] in
+  let semi := armv8a_ADR_semi in
+  {|
+    id_msb_flag := MSB_MERGE;
+    id_tin := tin;
+    id_in := [:: Ec 1 ];
+    id_tout := [:: lreg ];
+    id_out := [:: Ea 0 ];
+    id_semi := sem_lprod_ok tin semi;
+    id_nargs := 2;
+    id_args_kinds := ak_reg_addr;
+    id_eq_size := refl_equal;
+    id_check_dest := refl_equal;
+    id_str_jas := armv8a_mn_str mn;
+    id_safe := [::];
+    id_pp_asm := pp_armv8a_op mn opts;
+    id_valid := osz == U64;
     id_safe_wf := refl_equal;
     id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
     id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
@@ -2173,152 +1488,6 @@ Definition armv8a_UXTW_instr : instr_desc_t := mk_extend_instr UXTW U32 false (o
 (* -------------------------------------------------------------------- *)
 (* Bit-manipulation instructions. *)
 
-Definition mk_unary_instr mn (semi : word osz -> ty_w osz) (valid : bool)
-  : instr_desc_t :=
-  let tin := [:: lword osz ] in
-  {|
-    id_msb_flag := msbf;
-    id_tin := tin;
-    id_in := [:: Ea 1 ];
-    id_tout := [:: lword osz ];
-    id_out := [:: Ea 0 ];
-    id_semi := sem_lprod_ok tin semi;
-    id_nargs := 2;
-    id_args_kinds := ak_reg_reg;
-    id_eq_size := refl_equal;
-    id_check_dest := refl_equal;
-    id_str_jas := armv8a_mn_str mn;
-    id_safe := [::];
-    id_pp_asm := pp_armv8a_op mn opts;
-    id_valid := valid;
-    id_safe_wf := refl_equal;
-    id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
-    id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
-  |}.
-
-(* [C6.2.320 RBIT] ARM DDI 0487 M.a, p. 2484
-   Reverse bits  This instruction reverses the bit order in a register.
-   Syntax: RBIT <Xd>, <Xn>
-   Operation (ASL):
-     constant bits(datasize) operand = X[n, datasize];
-     bits(datasize) result;
-     for i = 0 to datasize-1
-         result<(datasize-1)-i> = operand<i>;
-     X[d, datasize] = result;
-*)
-Definition armv8a_RBIT_semi {ws : wsize} (w : word ws) : ty_w ws :=
-  winit ws (fun i => wbit_n w (Z.to_nat (wsize_bits ws) - 1 - i)).
-
-Definition armv8a_RBIT_instr := mk_unary_instr RBIT (armv8a_RBIT_semi (ws := osz)) osz_valid.
-(* [C6.2.341 REV] ARM DDI 0487 M.a, p. 2532
-   Reverse bytes  This instruction reverses the byte order in a register.  This
-   instruction is used by the pseudo-instruction REV64.
-   Syntax: REV <Xd>, <Xn>
-   Operation (ASL):
-     constant bits(datasize) operand = X[n, datasize];
-     bits(datasize) result;
-     constant integer containers = datasize DIV container_size;
-     for c = 0 to containers-1
-         constant bits(container_size) container = Elem[operand, c, container_size];
-         Elem[result, c, container_size] = Reverse(container, 8);
-     X[d, datasize] = result;
-*)
-Definition armv8a_REV_semi {ws : wsize} (w : word ws) : ty_w ws :=
-  wbswap w.
-
-Definition armv8a_REV_instr := mk_unary_instr REV (armv8a_REV_semi (ws := osz)) osz_valid.
-(* [C6.2.342 REV16] ARM DDI 0487 M.a, p. 2534
-   Reverse bytes in 16-bit halfwords  This instruction reverses the byte order
-   in each 16-bit halfword of a register.
-   Syntax: REV16 <Xd>, <Xn>
-   Operation (ASL):
-     constant bits(datasize) operand = X[n, datasize];
-     bits(datasize) result;
-     constant integer containers = datasize DIV container_size;
-     for c = 0 to containers-1
-         constant bits(container_size) container = Elem[operand, c, container_size];
-         Elem[result, c, container_size] = Reverse(container, 8);
-     X[d, datasize] = result;
-*)
-Definition armv8a_REV16_semi {ws : wsize} (w : word ws) : ty_w ws :=
-  lift1_vec U16 (@wbswap U16) ws w.
-
-Definition armv8a_REV16_instr := mk_unary_instr REV16 (armv8a_REV16_semi (ws := osz)) osz_valid.
-(* [C6.2.91 CLZ] ARM DDI 0487 M.a, p. 1940
-   Count leading zeros  This instruction counts the number of consecutive
-   binary zero bits, starting from the most significant bit in the source
-   register, and places the count in the destination register.
-   Syntax: CLZ <Xd>, <Xn>
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant integer result = CountLeadingZeroBits(operand1);
-     X[d, datasize] = result<datasize-1:0>;
-*)
-Definition armv8a_CLZ_semi {ws : wsize} (w : word ws) : ty_w ws :=
-  leading_zero w.
-
-Definition armv8a_CLZ_instr := mk_unary_instr CLZ (armv8a_CLZ_semi (ws := osz)) osz_valid.
-(* [C6.2.90 CLS] ARM DDI 0487 M.a, p. 1939
-   Count leading sign bits  This instruction counts the number of leading bits
-   of the source register that have the same value as the most significant bit
-   of the register, and writes the result to the destination register. This
-   count does not include the most significant bit of the source register.
-   Syntax: CLS <Xd>, <Xn>
-   Operation (ASL):
-     constant bits(datasize) operand1 = X[n, datasize];
-     constant integer result = CountLeadingSignBits(operand1);
-     X[d, datasize] = result<datasize-1:0>;
-*)
-(* CountLeadingSignBits(x) = CountLeadingZeroBits(x<msb:1> EOR x<msb-1:0>):
-   the (N-1)-bit word [x<msb:1> EOR x<msb-1:0>] is computed as the N-bit
-   word [(x >> 1) EOR x] with its top bit cleared, whose leading-zero
-   count is one more than that of the (N-1)-bit word. *)
-Definition armv8a_CLS_semi {ws : wsize} (w : word ws) : ty_w ws :=
-  let t := wand (wxor (wshr w 1) w) (wrepr ws (2 ^ (wsize_bits ws - 1) - 1)) in
-  (leading_zero t - 1)%w.
-
-Definition armv8a_CLS_instr := mk_unary_instr CLS (armv8a_CLS_semi (ws := osz)) osz_valid.
-
-(* [C6.2.343 REV32] ARM DDI 0487 M.a, p. 2536
-   Reverse bytes in 32-bit words  This instruction reverses the byte order in
-   each 32-bit word of a register.
-   Syntax: REV32 <Xd>, <Xn>
-   Operation (ASL):
-     constant bits(datasize) operand = X[n, datasize];
-     bits(datasize) result;
-     constant integer containers = datasize DIV container_size;
-     for c = 0 to containers-1
-         constant bits(container_size) container = Elem[operand, c, container_size];
-         Elem[result, c, container_size] = Reverse(container, 8);
-     X[d, datasize] = result;
-*)
-Definition armv8a_REV32_semi (w : word U64) : ty_r :=
-  lift1_vec U32 (@wbswap U32) U64 w.
-
-Definition armv8a_REV32_instr : instr_desc_t :=
-  let mn := REV32 in
-  let tin := [:: lreg ] in
-  let semi := armv8a_REV32_semi in
-  {|
-    id_msb_flag := MSB_MERGE;
-    id_tin := tin;
-    id_in := [:: Ea 1 ];
-    id_tout := [:: lreg ];
-    id_out := [:: Ea 0 ];
-    id_semi := sem_lprod_ok tin semi;
-    id_nargs := 2;
-    id_args_kinds := ak_reg_reg;
-    id_eq_size := refl_equal;
-    id_check_dest := refl_equal;
-    id_str_jas := armv8a_mn_str mn;
-    id_safe := [::];
-    id_pp_asm := pp_armv8a_op mn opts;
-    id_valid := osz == U64;
-    id_safe_wf := refl_equal;
-    id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
-    id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
-  |}.
-
 (* -------------------------------------------------------------------- *)
 (* Comparisons. *)
 
@@ -2377,27 +1546,6 @@ Definition armv8a_CMP_semi {ws : wsize} (wn wm : word ws) : ty_nzcv :=
 
 Definition armv8a_CMP_instr : instr_desc_t :=
   mk_cmp_instr CMP arith_imm armv8a_CMP_semi.
-(* [C6.2.94 CMN (shifted register)] ARM DDI 0487 M.a, p. 1946
-   Compare negative (shifted register)  This instruction adds a register value
-   and an optionally-shifted register value. It updates the condition flags
-   based on the result, and discards the result.  This is an alias of ADDS
-   (shifted register). This means:  • The encodings in this description are
-   named to match the encodings of ADDS (shifted register). • The description
-   of ADDS (shifted register) gives the operational pseudocode, any CONSTRAINED
-   UNPREDICTABLE behavior, and any operational information for this
-   instruction.
-   Syntax: CMN <Wn>, <Wm>{, <shift> #<amount>}  ==  CMN <Xn>, <Xm>{, <shift> #<amount>}
-   Operation (ASL):
-     The description of ADDS (shifted register) gives the operational pseudocode for this instruction.
-*)
-Definition armv8a_CMN_semi {ws : wsize} (wn wm : word ws) : ty_nzcv :=
-  nzcv_of_aluop
-    (wn + wm)%w
-    (wunsigned wn + wunsigned wm)%Z
-    (wsigned wn + wsigned wm)%Z.
-
-Definition armv8a_CMN_instr : instr_desc_t :=
-  mk_cmp_instr CMN arith_imm armv8a_CMN_semi.
 (* [C6.2.484 TST (shifted register)] ARM DDI 0487 M.a, p. 2837
    Test (shifted register)  This instruction performs a bitwise AND operation
    on a register value and an optionally-shifted register value. It updates the
@@ -2464,113 +1612,6 @@ Definition armv8a_CSEL_semi {ws : wsize} (wn wm : word ws) (b : bool) : ty_w ws 
   if b then wn else wm.
 
 Definition armv8a_CSEL_instr := mk_csel_instr CSEL (armv8a_CSEL_semi (ws := osz)).
-(* [C6.2.141 CSINC] ARM DDI 0487 M.a, p. 2144
-   Conditional select increment  This instruction returns, in the destination
-   register, the value of the first source register if the condition is TRUE,
-   and otherwise returns the value of the second source register incremented by
-   1.  This instruction is used by the aliases CINC and CSET.
-   Syntax: CSINC <Xd>, <Xn>, <Xm>, <cond>
-   Operation (ASL):
-     bits(datasize) result;
-     if ConditionHolds(condition) then
-         result = X[n, datasize];
-     else
-         result = X[m, datasize] + 1;
-     X[d, datasize] = result;
-*)
-Definition armv8a_CSINC_semi {ws : wsize} (wn wm : word ws) (b : bool) : ty_w ws :=
-  if b then wn else (wm + 1)%w.
-
-Definition armv8a_CSINC_instr := mk_csel_instr CSINC (armv8a_CSINC_semi (ws := osz)).
-(* [C6.2.142 CSINV] ARM DDI 0487 M.a, p. 2146
-   Conditional select invert  This instruction returns, in the destination
-   register, the value of the first source register if the condition is TRUE,
-   and otherwise returns the bitwise inversion value of the second source
-   register.  This instruction is used by the aliases CINV and CSETM.
-   Syntax: CSINV <Xd>, <Xn>, <Xm>, <cond>
-   Operation (ASL):
-     bits(datasize) result;
-     if ConditionHolds(condition) then
-         result = X[n, datasize];
-     else
-         result = NOT(X[m, datasize]);
-     X[d, datasize] = result;
-*)
-Definition armv8a_CSINV_semi {ws : wsize} (wn wm : word ws) (b : bool) : ty_w ws :=
-  if b then wn else wnot wm.
-
-Definition armv8a_CSINV_instr := mk_csel_instr CSINV (armv8a_CSINV_semi (ws := osz)).
-(* [C6.2.143 CSNEG] ARM DDI 0487 M.a, p. 2148
-   Conditional select negation  This instruction returns, in the destination
-   register, the value of the first source register if the condition is TRUE,
-   and otherwise returns the negated value of the second source register.  This
-   instruction is used by the alias CNEG.
-   Syntax: CSNEG <Xd>, <Xn>, <Xm>, <cond>
-   Operation (ASL):
-     bits(datasize) result;
-     if ConditionHolds(condition) then
-         result = X[n, datasize];
-     else
-         result = NOT(X[m, datasize]) + 1;
-     X[d, datasize] = result;
-*)
-Definition armv8a_CSNEG_semi {ws : wsize} (wn wm : word ws) (b : bool) : ty_w ws :=
-  if b then wn else (wnot wm + 1)%w.
-
-Definition armv8a_CSNEG_instr := mk_csel_instr CSNEG (armv8a_CSNEG_semi (ws := osz)).
-
-Definition mk_cset_instr mn (semi : bool -> ty_w osz) : instr_desc_t :=
-  let tin := [:: lbool ] in
-  {|
-    id_msb_flag := msbf;
-    id_tin := tin;
-    id_in := [:: Ea 1 ];
-    id_tout := [:: lword osz ];
-    id_out := [:: Ea 0 ];
-    id_semi := sem_lprod_ok tin semi;
-    id_nargs := 2;
-    id_args_kinds := ak_r_cond;
-    id_eq_size := refl_equal;
-    id_check_dest := refl_equal;
-    id_str_jas := armv8a_mn_str mn;
-    id_safe := [::];
-    id_pp_asm := pp_armv8a_op mn opts;
-    id_valid := osz_valid;
-    id_safe_wf := refl_equal;
-    id_semi_errty := fun _ => sem_lprod_ok_error tin semi;
-    id_semi_safe := fun _ => sem_lprod_ok_safe tin semi;
-  |}.
-
-(* [C6.2.139 CSET] ARM DDI 0487 M.a, p. 2140
-   Conditional set  This instruction sets the destination register to 1 if the
-   condition is TRUE, and otherwise sets it to 0.  This is an alias of CSINC.
-   This means:  • The encodings in this description are named to match the
-   encodings of CSINC. • The description of CSINC gives the operational
-   pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational
-   information for this instruction.
-   Syntax: CSET <Xd>, <invcond>  ==  CSINC <Xd>, XZR, XZR, <cond>
-   Operation (ASL):
-     The description of CSINC gives the operational pseudocode for this instruction.
-*)
-Definition armv8a_CSET_semi {ws : wsize} (b : bool) : ty_w ws :=
-  if b then 1%w else 0%w.
-
-Definition armv8a_CSET_instr := mk_cset_instr CSET (armv8a_CSET_semi (ws := osz)).
-(* [C6.2.140 CSETM] ARM DDI 0487 M.a, p. 2142
-   Conditional set mask  This instruction sets all bits of the destination
-   register to 1 if the condition is TRUE, and otherwise sets all bits to 0.
-   This is an alias of CSINV. This means:  • The encodings in this description
-   are named to match the encodings of CSINV. • The description of CSINV gives
-   the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any
-   operational information for this instruction.
-   Syntax: CSETM <Xd>, <invcond>  ==  CSINV <Xd>, XZR, XZR, <cond>
-   Operation (ASL):
-     The description of CSINV gives the operational pseudocode for this instruction.
-*)
-Definition armv8a_CSETM_semi {ws : wsize} (b : bool) : ty_w ws :=
-  if b then wrepr ws (-1) else 0%w.
-
-Definition armv8a_CSETM_instr := mk_cset_instr CSETM (armv8a_CSETM_semi (ws := osz)).
 
 (* -------------------------------------------------------------------- *)
 (* Loads and stores.
@@ -2870,24 +1911,13 @@ Definition mn_desc (mn : armv8a_mnemonic) : instr_desc_t :=
   | ADCS => armv8a_ADCS_instr
   | SUB => armv8a_SUB_instr
   | SUBS => armv8a_SUBS_instr
-  | SBC => armv8a_SBC_instr
-  | SBCS => armv8a_SBCS_instr
   | NEG => armv8a_NEG_instr
   | MUL => armv8a_MUL_instr
   | MADD => armv8a_MADD_instr
   | MSUB => armv8a_MSUB_instr
   | SDIV => armv8a_SDIV_instr
   | UDIV => armv8a_UDIV_instr
-  | UMULL => armv8a_UMULL_instr
-  | SMULL => armv8a_SMULL_instr
-  | UMADDL => armv8a_UMADDL_instr
-  | SMADDL => armv8a_SMADDL_instr
-  | UMULH => armv8a_UMULH_instr
-  | SMULH => armv8a_SMULH_instr
   | AND => armv8a_AND_instr
-  | ANDS => armv8a_ANDS_instr
-  | BIC => armv8a_BIC_instr
-  | BICS => armv8a_BICS_instr
   | ORR => armv8a_ORR_instr
   | EOR => armv8a_EOR_instr
   | MVN => armv8a_MVN_instr
@@ -2895,12 +1925,6 @@ Definition mn_desc (mn : armv8a_mnemonic) : instr_desc_t :=
   | LSL => armv8a_LSL_instr
   | LSR => armv8a_LSR_instr
   | ROR => armv8a_ROR_instr
-  | BFC => armv8a_BFC_instr
-  | BFI => armv8a_BFI_instr
-  | BFXIL => armv8a_BFXIL_instr
-  | SBFX => armv8a_SBFX_instr
-  | UBFX => armv8a_UBFX_instr
-  | EXTR => armv8a_EXTR_instr
   | MOV => armv8a_MOV_instr
   | MOVN => armv8a_MOVN_instr
   | MOVZ => armv8a_MOVZ_instr
@@ -2912,21 +1936,9 @@ Definition mn_desc (mn : armv8a_mnemonic) : instr_desc_t :=
   | UXTB => armv8a_UXTB_instr
   | UXTH => armv8a_UXTH_instr
   | UXTW => armv8a_UXTW_instr
-  | RBIT => armv8a_RBIT_instr
-  | REV => armv8a_REV_instr
-  | REV16 => armv8a_REV16_instr
-  | REV32 => armv8a_REV32_instr
-  | CLZ => armv8a_CLZ_instr
-  | CLS => armv8a_CLS_instr
   | CMP => armv8a_CMP_instr
-  | CMN => armv8a_CMN_instr
   | TST => armv8a_TST_instr
   | CSEL => armv8a_CSEL_instr
-  | CSINC => armv8a_CSINC_instr
-  | CSINV => armv8a_CSINV_instr
-  | CSNEG => armv8a_CSNEG_instr
-  | CSET => armv8a_CSET_instr
-  | CSETM => armv8a_CSETM_instr
   | LDR => armv8a_load_instr LDR
   | LDRB => armv8a_load_instr LDRB
   | LDRH => armv8a_load_instr LDRH

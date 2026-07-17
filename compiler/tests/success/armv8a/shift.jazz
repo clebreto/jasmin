@@ -12,6 +12,5 @@ fn shift(reg u64 arg0, reg u64 arg1) -> reg u64 {
     x = x >> (arg1 & 63);
     x = x >>s (arg1 & 63);
     x = #ROR(x, 7);
-    x = #EXTR(x, arg0, 13);
     return x;
 }
