@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+# Check that a program printed after typing (-ptyping) can be parsed
+# again, and that printing the reparsed program is stable (the second
+# print is identical to the first).
+
+set -e
+
+TEST_FILE=${@: -1}
+ARGS=("${@:1:$#-1}")
+DIR=tests/results/print-roundtrip/${TEST_FILE%.jazz}
+
+if [ -d "${DIR}" ]; then rm -r ${DIR}; fi
+mkdir -p $DIR
+
+set -x
+
+$(dirname $0)/../jasminc "${ARGS[@]}" -ptyping -until_typing "$TEST_FILE" > $DIR/print1.jazz
+$(dirname $0)/../jasminc "${ARGS[@]}" -ptyping -until_typing $DIR/print1.jazz > $DIR/print2.jazz
+diff $DIR/print1.jazz $DIR/print2.jazz

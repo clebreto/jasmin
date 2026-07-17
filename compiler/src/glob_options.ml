@@ -66,6 +66,13 @@ let set_stack_zero_strategy s =
 let stack_zero_size = ref None
 let set_stack_zero_size s = stack_zero_size := Some (Annot.ws_of_string s)
 
+(* Minimal alignment kept by the stack pointer across calls. [None] means
+   the default of the target architecture (16 bytes on armv8a, where the
+   hardware checks SP alignment; no constraint on the other
+   architectures). *)
+let sp_min_align = ref None
+let set_sp_min_align s = sp_min_align := Some (Annot.ws_of_string s)
+
 let target_arch = ref X86_64
 
 let set_target_arch a =
@@ -73,6 +80,7 @@ let set_target_arch a =
     match a with
     | "x86-64" -> X86_64
     | "arm-m4" -> ARM_M4
+    | "armv8a" -> ARMv8A
     | "riscv" -> RISCV
     | _ -> assert false
   in target_arch := a'
@@ -229,7 +237,7 @@ let options = [
     "-intel", Arg.Unit (set_syntax `Intel), " Use intel syntax (default is AT&T)"; 
     "-ATT", Arg.Unit (set_syntax `ATT), " Use AT&T syntax (default is AT&T)"; 
     "-call-conv", Arg.Symbol (["windows"; "linux"], set_cc), " Select calling convention (default depends on host architecture)";
-    "-arch", Arg.Symbol (["x86-64"; "arm-m4"; "riscv"], set_target_arch), " Select target arch (default is x86-64)";
+    "-arch", Arg.Symbol (["x86-64"; "arm-m4"; "armv8a"; "riscv"], set_target_arch), " Select target arch (default is x86-64)";
     "-system", Arg.Symbol (["macosx"; "linux"], set_target_system), " Select target system (default is "^ Config.target_system^")";
     "-stack-zero",
       Arg.Symbol (List.map fst stack_zero_strategies, set_stack_zero_strategy),
@@ -237,6 +245,12 @@ let options = [
     "-stack-zero-size",
       Arg.Symbol (List.map fst Annot.ws_strings, set_stack_zero_size),
       " Select stack zeroization size for export functions";
+    "-sp-min-align",
+      Arg.Symbol (List.map fst Annot.ws_strings, set_sp_min_align),
+      " Minimal alignment kept by the stack pointer across calls (default \
+       depends on the target architecture: u128, i.e. 16 bytes, on armv8a; \
+       no constraint otherwise). Lowering it below the architectural \
+       requirement may produce faulting code";
     "-pliveness", Arg.Set print_liveness, " Print liveness information during register allocation"
   ] @  List.map print_option Compiler.compiler_step_list @ List.map stop_after_option Compiler.compiler_step_list
 

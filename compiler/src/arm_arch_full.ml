@@ -1,4 +1,5 @@
 open Arch_decl
+open Arm_common
 open Arm_decl
 
 
@@ -121,6 +122,10 @@ module Arm (Lowering_params : Arm_input) : Arch_full.Core_arch
   let pp_asm = Pp_arm_m4.print_prog
 
   let callstyle = Arch_full.ByReg { call = Some LR; return = false }
+
+  let sp_min_align = Wsize.U8
+
+  let max_store_size = Wsize.U32
 
   let internal_call_conv = Arm_decl.arm_internal_call_conv
 end

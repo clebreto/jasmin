@@ -1,0 +1,1490 @@
+{
+  "pdf": {
+    "file": "DDI0487_M.a.a_a-profile_architecture_reference_manual.pdf",
+    "edition": "DDI0487 M.a",
+    "sha256": "c07b1302a3db0c6bc0490808c771d66684ddd5adfb2ef64fd23e6beeb7b22e48"
+  },
+  "mnemonics": {
+    "ADD": [
+      {
+        "c62_id": "C6.2.5",
+        "title": "ADD (immediate)",
+        "page": 1796,
+        "page_end": 1797,
+        "summary": "Add immediate value\n\nThis instruction adds a register value and an optionally-shifted immediate value, and writes the result to the destination register.\n\nThis instruction is used by the alias MOV (to/from SP).",
+        "syntax": [
+          "ADD <Wd|WSP>, <Wn|WSP>, #<imm>{, <shift>}",
+          "ADD <Xd|SP>, <Xn|SP>, #<imm>{, <shift>}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = if n == 31 then SP[datasize] else X[n, datasize];\nconstant bits(datasize) operand2 = ZeroExtend(imm, datasize);\nbits(datasize) result;\n(result, -) = AddWithCarry(operand1, operand2, '0');\nif d == 31 then\n    SP[64] = ZeroExtend(result, 64);\nelse\n    X[d, datasize] = result;"
+      },
+      {
+        "c62_id": "C6.2.6",
+        "title": "ADD (shifted register)",
+        "page": 1798,
+        "page_end": 1799,
+        "summary": "Add optionally-shifted register\n\nThis instruction adds a register value and an optionally-shifted register value, and writes the result to the destination register.",
+        "syntax": [
+          "ADD <Wd>, <Wn>, <Wm>{, <shift> #<amount>}",
+          "ADD <Xd>, <Xn>, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);\nbits(datasize) result;\n(result, -) = AddWithCarry(operand1, operand2, '0');\nX[d, datasize] = result;"
+      },
+      {
+        "c62_id": "C6.2.4",
+        "title": "ADD (extended register)",
+        "page": 1793,
+        "page_end": 1795,
+        "summary": "Add extended and scaled register\n\nThis instruction adds a register value and a sign or zero-extended register value, followed by an optional left shift amount, and writes the result to the destination register. The argument that is extended from the <Rm> register can be a byte, halfword, word, or doubleword.",
+        "syntax": [
+          "ADD <Wd|WSP>, <Wn|WSP>, <Wm>{, <extend> {#<amount>}}",
+          "ADD <Xd|SP>, <Xn|SP>, <R><m>{, <extend> {#<amount>}}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = if n == 31 then SP[datasize] else X[n, datasize];\nconstant bits(datasize) operand2 = ExtendReg(m, extend_type, shift, datasize);\nbits(datasize) result;\n(result, -) = AddWithCarry(operand1, operand2, '0');\nif d == 31 then\n    SP[64] = ZeroExtend(result, 64);\nelse\n    X[d, datasize] = result;"
+      }
+    ],
+    "ADDS": [
+      {
+        "c62_id": "C6.2.10",
+        "title": "ADDS (immediate)",
+        "page": 1805,
+        "page_end": 1806,
+        "summary": "Add immediate value, setting flags\n\nThis instruction adds a register value and an optionally-shifted immediate value, and writes the result to the destination register. It updates the condition flags based on the result.\n\nThis instruction is used by the alias CMN (immediate).",
+        "syntax": [
+          "ADDS <Wd>, <Wn|WSP>, #<imm>{, <shift>}",
+          "ADDS <Xd>, <Xn|SP>, #<imm>{, <shift>}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = if n == 31 then SP[datasize] else X[n, datasize];\nconstant bits(datasize) operand2 = ZeroExtend(imm, datasize);\nbits(datasize) result;\nbits(4) nzcv;\n(result, nzcv) = AddWithCarry(operand1, operand2, '0');\nX[d, datasize] = result;\nPSTATE.<N,Z,C,V> = nzcv;"
+      },
+      {
+        "c62_id": "C6.2.11",
+        "title": "ADDS (shifted register)",
+        "page": 1807,
+        "page_end": 1808,
+        "summary": "Add optionally-shifted register, setting flags\n\nThis instruction adds a register value and an optionally-shifted register value, and writes the result to the destination register. It updates the condition flags based on the result.\n\nThis instruction is used by the alias CMN (shifted register).",
+        "syntax": [
+          "ADDS <Wd>, <Wn>, <Wm>{, <shift> #<amount>}",
+          "ADDS <Xd>, <Xn>, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);\nbits(datasize) result;\nbits(4) nzcv;\n(result, nzcv) = AddWithCarry(operand1, operand2, '0');\nX[d, datasize] = result;\nPSTATE.<N,Z,C,V> = nzcv;"
+      }
+    ],
+    "ADC": [
+      {
+        "c62_id": "C6.2.2",
+        "title": "ADC",
+        "page": 1789,
+        "page_end": 1790,
+        "summary": "Add with carry\n\nThis instruction adds two register values and the Carry flag value, and writes the result to the destination register.",
+        "syntax": [
+          "ADC <Wd>, <Wn>, <Wm>",
+          "ADC <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = X[m, datasize];\nbits(datasize) result;\n(result, -) = AddWithCarry(operand1, operand2, PSTATE.C);\nX[d, datasize] = result;"
+      }
+    ],
+    "ADCS": [
+      {
+        "c62_id": "C6.2.3",
+        "title": "ADCS",
+        "page": 1791,
+        "page_end": 1792,
+        "summary": "Add with carry, setting flags\n\nThis instruction adds two register values and the Carry flag value, and writes the result to the destination register. It updates the condition flags based on the result.",
+        "syntax": [
+          "ADCS <Wd>, <Wn>, <Wm>",
+          "ADCS <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = X[m, datasize];\nbits(datasize) result;\nbits(4) nzcv;\n(result, nzcv) = AddWithCarry(operand1, operand2, PSTATE.C);\nX[d, datasize] = result;\nPSTATE.<N,Z,C,V> = nzcv;"
+      }
+    ],
+    "SUB": [
+      {
+        "c62_id": "C6.2.456",
+        "title": "SUB (immediate)",
+        "page": 2783,
+        "page_end": 2784,
+        "summary": "Subtract immediate value\n\nThis instruction subtracts an optionally-shifted immediate value from a register value, and writes the result to the destination register.",
+        "syntax": [
+          "SUB <Wd|WSP>, <Wn|WSP>, #<imm>{, <shift>}",
+          "SUB <Xd|SP>, <Xn|SP>, #<imm>{, <shift>}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = if n == 31 then SP[datasize] else X[n, datasize];\nconstant bits(datasize) operand2 = ZeroExtend(imm, datasize);\nbits(datasize) result;\n(result, -) = AddWithCarry(operand1, NOT(operand2), '1');\nif d == 31 then\n    SP[64] = ZeroExtend(result, 64);\nelse\n    X[d, datasize] = result;"
+      },
+      {
+        "c62_id": "C6.2.457",
+        "title": "SUB (shifted register)",
+        "page": 2785,
+        "page_end": 2786,
+        "summary": "Subtract optionally-shifted register\n\nThis instruction subtracts an optionally-shifted register value from a register value, and writes the result to the destination register.\n\nThis instruction is used by the alias NEG (shifted register).",
+        "syntax": [
+          "SUB <Wd>, <Wn>, <Wm>{, <shift> #<amount>}",
+          "SUB <Xd>, <Xn>, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = NOT(ShiftReg(m, shift_type, shift_amount, datasize));\nbits(datasize) result;\n(result, -) = AddWithCarry(operand1, operand2, '1');\nX[d, datasize] = result;"
+      },
+      {
+        "c62_id": "C6.2.455",
+        "title": "SUB (extended register)",
+        "page": 2780,
+        "page_end": 2782,
+        "summary": "Subtract extended and scaled register\n\nThis instruction subtracts a sign or zero-extended register value, followed by an optional left shift amount, from a register value, and writes the result to the destination register. The argument that is extended from the <Rm> register can be a byte, halfword, word, or doubleword.",
+        "syntax": [
+          "SUB <Wd|WSP>, <Wn|WSP>, <Wm>{, <extend> {#<amount>}}",
+          "SUB <Xd|SP>, <Xn|SP>, <R><m>{, <extend> {#<amount>}}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = if n == 31 then SP[datasize] else X[n, datasize];\nconstant bits(datasize) operand2 = NOT(ExtendReg(m, extend_type, shift, datasize));\nbits(datasize) result;\n(result, -) = AddWithCarry(operand1, operand2, '1');\nif d == 31 then\n    SP[64] = ZeroExtend(result, 64);\nelse\n    X[d, datasize] = result;"
+      }
+    ],
+    "SUBS": [
+      {
+        "c62_id": "C6.2.463",
+        "title": "SUBS (immediate)",
+        "page": 2795,
+        "page_end": 2796,
+        "summary": "Subtract immediate value, setting flags\n\nThis instruction subtracts an optionally-shifted immediate value from a register value, and writes the result to the destination register. It updates the condition flags based on the result.\n\nThis instruction is used by the alias CMP (immediate).",
+        "syntax": [
+          "SUBS <Wd>, <Wn|WSP>, #<imm>{, <shift>}",
+          "SUBS <Xd>, <Xn|SP>, #<imm>{, <shift>}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = if n == 31 then SP[datasize] else X[n, datasize];\nconstant bits(datasize) operand2 = ZeroExtend(imm, datasize);\nbits(datasize) result;\nbits(4) nzcv;\n(result, nzcv) = AddWithCarry(operand1, NOT(operand2), '1');\nX[d, datasize] = result;\nPSTATE.<N,Z,C,V> = nzcv;"
+      },
+      {
+        "c62_id": "C6.2.464",
+        "title": "SUBS (shifted register)",
+        "page": 2797,
+        "page_end": 2798,
+        "summary": "Subtract optionally-shifted register, setting flags\n\nThis instruction subtracts an optionally-shifted register value from a register value, and writes the result to the destination register. It updates the condition flags based on the result.\n\nThis instruction is used by the aliases CMP (shifted register) and NEGS.",
+        "syntax": [
+          "SUBS <Wd>, <Wn>, <Wm>{, <shift> #<amount>}",
+          "SUBS <Xd>, <Xn>, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = NOT(ShiftReg(m, shift_type, shift_amount, datasize));\nbits(datasize) result;\nbits(4) nzcv;\n(result, nzcv) = AddWithCarry(operand1, operand2, '1');\nX[d, datasize] = result;\nPSTATE.<N,Z,C,V> = nzcv;"
+      }
+    ],
+    "SBC": [
+      {
+        "c62_id": "C6.2.351",
+        "title": "SBC",
+        "page": 2548,
+        "page_end": 2549,
+        "summary": "Subtract with carry\n\nThis instruction subtracts a register value and the value of NOT (Carry flag) from a register value, and writes the result to the destination register.\n\nThis instruction is used by the alias NGC.",
+        "syntax": [
+          "SBC <Wd>, <Wn>, <Wm>",
+          "SBC <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = NOT(X[m, datasize]);\nbits(datasize) result;\n(result, -) = AddWithCarry(operand1, operand2, PSTATE.C);\nX[d, datasize] = result;"
+      }
+    ],
+    "SBCS": [
+      {
+        "c62_id": "C6.2.352",
+        "title": "SBCS",
+        "page": 2550,
+        "page_end": 2551,
+        "summary": "Subtract with carry, setting flags\n\nThis instruction subtracts a register value and the value of NOT (Carry flag) from a register value, and writes the result to the destination register. It updates the condition flags based on the result.\n\nThis instruction is used by the alias NGCS.",
+        "syntax": [
+          "SBCS <Wd>, <Wn>, <Wm>",
+          "SBCS <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = NOT(X[m, datasize]);\nbits(datasize) result;\nbits(4) nzcv;\n(result, nzcv) = AddWithCarry(operand1, operand2, PSTATE.C);\nX[d, datasize] = result;\nPSTATE.<N,Z,C,V> = nzcv;"
+      }
+    ],
+    "MUL": [
+      {
+        "c62_id": "C6.2.292",
+        "title": "MUL",
+        "page": 2436,
+        "page_end": 2437,
+        "summary": "Multiply\n\nThis instruction multiplies two register values and writes the result to the destination register.\n\nThis is an alias of MADD. This means:\n\n• The encodings in this description are named to match the encodings of MADD. • The description of MADD gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "MUL <Wd>, <Wn>, <Wm>  ==  MADD <Wd>, <Wn>, <Wm>, WZR",
+          "MUL <Xd>, <Xn>, <Xm>  ==  MADD <Xd>, <Xn>, <Xm>, XZR"
+        ],
+        "operation_asl": "The description of MADD gives the operational pseudocode for this instruction.",
+        "note": "MUL is an alias of MADD with Ra = ZR (see the MADD entry for the operational pseudocode)."
+      }
+    ],
+    "MADD": [
+      {
+        "c62_id": "C6.2.274",
+        "title": "MADD",
+        "page": 2401,
+        "page_end": 2402,
+        "summary": "Multiply-add\n\nThis instruction multiplies two register values, adds a third register value, and writes the result to the destination register.\n\nThis instruction is used by the alias MUL.",
+        "syntax": [
+          "MADD <Wd>, <Wn>, <Wm>, <Wa>",
+          "MADD <Xd>, <Xn>, <Xm>, <Xa>"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = X[m, datasize];\nconstant bits(datasize) operand3 = X[a, datasize];\nconstant integer result = UInt(operand3) + (UInt(operand1) * UInt(operand2));\nX[d, datasize] = result<datasize-1:0>;"
+      }
+    ],
+    "MSUB": [
+      {
+        "c62_id": "C6.2.290",
+        "title": "MSUB",
+        "page": 2432,
+        "page_end": 2433,
+        "summary": "Multiply-subtract\n\nThis instruction multiplies two register values, subtracts the product from a third register value, and writes the result to the destination register.\n\nThis instruction is used by the alias MNEG.",
+        "syntax": [
+          "MSUB <Wd>, <Wn>, <Wm>, <Wa>",
+          "MSUB <Xd>, <Xn>, <Xm>, <Xa>"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = X[m, datasize];\nconstant bits(datasize) operand3 = X[a, datasize];\nconstant integer result = UInt(operand3) - (UInt(operand1) * UInt(operand2));\nX[d, datasize] = result<datasize-1:0>;"
+      }
+    ],
+    "NEG": [
+      {
+        "c62_id": "C6.2.294",
+        "title": "NEG (shifted register)",
+        "page": 2440,
+        "page_end": 2441,
+        "summary": "Negate (shifted register)\n\nThis instruction negates an optionally-shifted register value, and writes the result to the destination register.\n\nThis is an alias of SUB (shifted register). This means:\n\n• The encodings in this description are named to match the encodings of SUB (shifted register). • The description of SUB (shifted register) gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "NEG <Wd>, <Wm>{, <shift> #<amount>}  ==  SUB <Wd>, WZR, <Wm>{, <shift> #<amount>}",
+          "NEG <Xd>, <Xm>{, <shift> #<amount>}  ==  SUB <Xd>, XZR, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "The description of SUB (shifted register) gives the operational pseudocode for this instruction.",
+        "note": "NEG is an alias of SUB (shifted register) with Rn = ZR; the SUB entry carries the operational pseudocode."
+      },
+      {
+        "c62_id": "C6.2.457",
+        "title": "SUB (shifted register)",
+        "page": 2785,
+        "page_end": 2786,
+        "summary": "Subtract optionally-shifted register\n\nThis instruction subtracts an optionally-shifted register value from a register value, and writes the result to the destination register.\n\nThis instruction is used by the alias NEG (shifted register).",
+        "syntax": [
+          "SUB <Wd>, <Wn>, <Wm>{, <shift> #<amount>}",
+          "SUB <Xd>, <Xn>, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = NOT(ShiftReg(m, shift_type, shift_amount, datasize));\nbits(datasize) result;\n(result, -) = AddWithCarry(operand1, operand2, '1');\nX[d, datasize] = result;",
+        "note": "NEG is an alias of SUB (shifted register) with Rn = ZR; the SUB entry carries the operational pseudocode."
+      }
+    ],
+    "SDIV": [
+      {
+        "c62_id": "C6.2.356",
+        "title": "SDIV",
+        "page": 2558,
+        "page_end": 2559,
+        "summary": "Signed divide\n\nThis instruction divides the first signed source register value by the second signed source register value, and writes the result to the destination register. Dividing by zero writes the value zero to the destination register. The condition flags are not affected.",
+        "syntax": [
+          "SDIV <Wd>, <Wn>, <Wm>",
+          "SDIV <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = X[m, datasize];\nconstant integer dividend = SInt(operand1);\nconstant integer divisor = SInt(operand2);\ninteger result;\nif divisor == 0 then\n    result = 0;\nelsif (dividend < 0) == (divisor < 0) then\n    result = Abs(dividend) DIV Abs(divisor); // same signs - positive result\nelse\n    result = -(Abs(dividend) DIV Abs(divisor)); // different signs - negative result\nX[d, datasize] = result<datasize-1:0>;"
+      }
+    ],
+    "UDIV": [
+      {
+        "c62_id": "C6.2.489",
+        "title": "UDIV",
+        "page": 2846,
+        "page_end": 2847,
+        "summary": "Unsigned divide\n\nThis instruction divides the first unsigned source register value by the second unsigned source register value, and writes the result to the destination register. Dividing by zero writes the value zero to the destination register. The condition flags are not affected.",
+        "syntax": [
+          "UDIV <Wd>, <Wn>, <Wm>",
+          "UDIV <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = X[m, datasize];\nconstant integer dividend = UInt(operand1);\nconstant integer divisor = UInt(operand2);\ninteger result;\nif divisor == 0 then\n    result = 0;\nelse\n    result = dividend DIV divisor;\nX[d, datasize] = result<datasize-1:0>;"
+      }
+    ],
+    "UMULL": [
+      {
+        "c62_id": "C6.2.498",
+        "title": "UMULL",
+        "page": 2862,
+        "page_end": 2862,
+        "summary": "Unsigned multiply long\n\nThis instruction multiplies two 32-bit register values, and writes the result to the 64-bit destination register.\n\nThis is an alias of UMADDL. This means:\n\n• The encodings in this description are named to match the encodings of UMADDL. • The description of UMADDL gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "UMULL <Xd>, <Wn>, <Wm>  ==  UMADDL <Xd>, <Wn>, <Wm>, XZR"
+        ],
+        "operation_asl": "The description of UMADDL gives the operational pseudocode for this instruction.",
+        "note": "UMULL is an alias of UMADDL with Ra = XZR."
+      }
+    ],
+    "SMULL": [
+      {
+        "c62_id": "C6.2.379",
+        "title": "SMULL",
+        "page": 2616,
+        "page_end": 2616,
+        "summary": "Signed multiply long\n\nThis instruction multiplies two 32-bit register values, and writes the result to the 64-bit destination register.\n\nThis is an alias of SMADDL. This means:\n\n• The encodings in this description are named to match the encodings of SMADDL. • The description of SMADDL gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "SMULL <Xd>, <Wn>, <Wm>  ==  SMADDL <Xd>, <Wn>, <Wm>, XZR"
+        ],
+        "operation_asl": "The description of SMADDL gives the operational pseudocode for this instruction.",
+        "note": "SMULL is an alias of SMADDL with Ra = XZR."
+      }
+    ],
+    "UMADDL": [
+      {
+        "c62_id": "C6.2.490",
+        "title": "UMADDL",
+        "page": 2848,
+        "page_end": 2849,
+        "summary": "Unsigned multiply-add long\n\nThis instruction multiplies two 32-bit register values, adds a 64-bit register value, and writes the result to the 64-bit destination register.\n\nThis instruction is used by the alias UMULL.",
+        "syntax": [
+          "UMADDL <Xd>, <Wn>, <Wm>, <Xa>"
+        ],
+        "operation_asl": "constant bits(32) operand1 = X[n, 32];\nconstant bits(32) operand2 = X[m, 32];\nconstant bits(64) operand3 = X[a, 64];\nconstant integer result = UInt(operand3) + (UInt(operand1) * UInt(operand2));\nX[d, 64] = result<63:0>;"
+      }
+    ],
+    "SMADDL": [
+      {
+        "c62_id": "C6.2.368",
+        "title": "SMADDL",
+        "page": 2599,
+        "page_end": 2600,
+        "summary": "Signed multiply-add long\n\nThis instruction multiplies two 32-bit register values, adds a 64-bit register value, and writes the result to the 64-bit destination register.\n\nThis instruction is used by the alias SMULL.",
+        "syntax": [
+          "SMADDL <Xd>, <Wn>, <Wm>, <Xa>"
+        ],
+        "operation_asl": "constant bits(32) operand1 = X[n, 32];\nconstant bits(32) operand2 = X[m, 32];\nconstant bits(64) operand3 = X[a, 64];\nconstant integer result = SInt(operand3) + (SInt(operand1) * SInt(operand2));\nX[d, 64] = result<63:0>;"
+      }
+    ],
+    "UMULH": [
+      {
+        "c62_id": "C6.2.497",
+        "title": "UMULH",
+        "page": 2861,
+        "page_end": 2861,
+        "summary": "Unsigned multiply high\n\nThis instruction multiplies two 64-bit register values, and writes bits[127:64] of the 128-bit result to the 64-bit destination register.",
+        "syntax": [
+          "UMULH <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "constant bits(64) operand1 = X[n, 64];\nconstant bits(64) operand2 = X[m, 64];\nconstant integer result = UInt(operand1) * UInt(operand2);\nX[d, 64] = result<127:64>;"
+      }
+    ],
+    "SMULH": [
+      {
+        "c62_id": "C6.2.378",
+        "title": "SMULH",
+        "page": 2615,
+        "page_end": 2615,
+        "summary": "Signed multiply high\n\nThis instruction multiplies two 64-bit register values, and writes bits[127:64] of the 128-bit result to the 64-bit destination register.",
+        "syntax": [
+          "SMULH <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "constant bits(64) operand1 = X[n, 64];\nconstant bits(64) operand2 = X[m, 64];\nconstant integer result = SInt(operand1) * SInt(operand2);\nX[d, 64] = result<127:64>;"
+      }
+    ],
+    "AND": [
+      {
+        "c62_id": "C6.2.14",
+        "title": "AND (immediate)",
+        "page": 1811,
+        "page_end": 1812,
+        "summary": "Bitwise AND (immediate)\n\nThis instruction performs a bitwise AND of a register value and an immediate value, and writes the result to the destination register.",
+        "syntax": [
+          "AND <Wd|WSP>, <Wn>, #<imm>",
+          "AND <Xd|SP>, <Xn>, #<imm>"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = imm;\nconstant bits(datasize) result = operand1 AND operand2;\nif d == 31 then\n    SP[64] = ZeroExtend(result, 64);\nelse\n    X[d, datasize] = result;"
+      },
+      {
+        "c62_id": "C6.2.15",
+        "title": "AND (shifted register)",
+        "page": 1813,
+        "page_end": 1814,
+        "summary": "Bitwise AND (shifted register)\n\nThis instruction performs a bitwise AND of a register value and an optionally-shifted register value, and writes the result to the destination register.",
+        "syntax": [
+          "AND <Wd>, <Wn>, <Wm>{, <shift> #<amount>}",
+          "AND <Xd>, <Xn>, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);\nX[d, datasize] = operand1 AND operand2;"
+      }
+    ],
+    "ANDS": [
+      {
+        "c62_id": "C6.2.16",
+        "title": "ANDS (immediate)",
+        "page": 1815,
+        "page_end": 1816,
+        "summary": "Bitwise AND (immediate), setting flags\n\nThis instruction performs a bitwise AND of a register value and an immediate value, and writes the result to the destination register. It updates the condition flags based on the result.\n\nThis instruction is used by the alias TST (immediate).",
+        "syntax": [
+          "ANDS <Wd>, <Wn>, #<imm>",
+          "ANDS <Xd>, <Xn>, #<imm>"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = imm;\nconstant bits(datasize) result = operand1 AND operand2;\nX[d, datasize] = result;\nPSTATE.<N,Z,C,V> = result<datasize-1>:IsZeroBit(result):'00';"
+      },
+      {
+        "c62_id": "C6.2.17",
+        "title": "ANDS (shifted register)",
+        "page": 1817,
+        "page_end": 1818,
+        "summary": "Bitwise AND (shifted register), setting flags\n\nThis instruction performs a bitwise AND of a register value and an optionally-shifted register value, and writes the result to the destination register. It updates the condition flags based on the result.\n\nThis instruction is used by the alias TST (shifted register).",
+        "syntax": [
+          "ANDS <Wd>, <Wn>, <Wm>{, <shift> #<amount>}",
+          "ANDS <Xd>, <Xn>, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);\nconstant bits(datasize) result = operand1 AND operand2;\nX[d, datasize] = result;\nPSTATE.<N,Z,C,V> = result<datasize-1>:IsZeroBit(result):'00';"
+      }
+    ],
+    "BIC": [
+      {
+        "c62_id": "C6.2.41",
+        "title": "BIC (shifted register)",
+        "page": 1856,
+        "page_end": 1857,
+        "summary": "Bitwise bit clear (shifted register)\n\nThis instruction performs a bitwise AND of a register value and the complement of an optionally-shifted register value, and writes the result to the destination register.",
+        "syntax": [
+          "BIC <Wd>, <Wn>, <Wm>{, <shift> #<amount>}",
+          "BIC <Xd>, <Xn>, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);\nX[d, datasize] = operand1 AND NOT(operand2);"
+      }
+    ],
+    "BICS": [
+      {
+        "c62_id": "C6.2.42",
+        "title": "BICS (shifted register)",
+        "page": 1858,
+        "page_end": 1859,
+        "summary": "Bitwise bit clear (shifted register), setting flags\n\nThis instruction performs a bitwise AND of a register value and the complement of an optionally-shifted register value, and writes the result to the destination register. It updates the condition flags based on the result.",
+        "syntax": [
+          "BICS <Wd>, <Wn>, <Wm>{, <shift> #<amount>}",
+          "BICS <Xd>, <Xn>, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);\nconstant bits(datasize) result = operand1 AND NOT(operand2);\nX[d, datasize] = result;\nPSTATE.<N,Z,C,V> = result<datasize-1>:IsZeroBit(result):'00';"
+      }
+    ],
+    "ORR": [
+      {
+        "c62_id": "C6.2.300",
+        "title": "ORR (immediate)",
+        "page": 2451,
+        "page_end": 2452,
+        "summary": "Bitwise OR (immediate)\n\nThis instruction performs a bitwise (inclusive) OR of a register value and an immediate value, and writes the result to the destination register.\n\nThis instruction is used by the alias MOV (bitmask immediate).",
+        "syntax": [
+          "ORR <Wd|WSP>, <Wn>, #<imm>",
+          "ORR <Xd|SP>, <Xn>, #<imm>"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = imm;\nconstant bits(datasize) result = operand1 OR operand2;\nif d == 31 then\n    SP[64] = ZeroExtend(result, 64);\nelse\n    X[d, datasize] = result;"
+      },
+      {
+        "c62_id": "C6.2.301",
+        "title": "ORR (shifted register)",
+        "page": 2453,
+        "page_end": 2454,
+        "summary": "Bitwise OR (shifted register)\n\nThis instruction performs a bitwise (inclusive) OR of a register value and an optionally-shifted register value, and writes the result to the destination register.\n\nThis instruction is used by the alias MOV (register).",
+        "syntax": [
+          "ORR <Wd>, <Wn>, <Wm>{, <shift> #<amount>}",
+          "ORR <Xd>, <Xn>, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);\nX[d, datasize] = operand1 OR operand2;"
+      }
+    ],
+    "EOR": [
+      {
+        "c62_id": "C6.2.155",
+        "title": "EOR (immediate)",
+        "page": 2167,
+        "page_end": 2168,
+        "summary": "Bitwise exclusive-OR (immediate)\n\nThis instruction performs a bitwise exclusive-OR of a register value and an immediate value, and writes the result to the destination register.",
+        "syntax": [
+          "EOR <Wd|WSP>, <Wn>, #<imm>",
+          "EOR <Xd|SP>, <Xn>, #<imm>"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = imm;\nconstant bits(datasize) result = operand1 EOR operand2;\nif d == 31 then\n    SP[64] = ZeroExtend(result, 64);\nelse\n    X[d, datasize] = result;"
+      },
+      {
+        "c62_id": "C6.2.156",
+        "title": "EOR (shifted register)",
+        "page": 2169,
+        "page_end": 2170,
+        "summary": "Bitwise exclusive-OR (shifted register)\n\nThis instruction performs a bitwise exclusive-OR of a register value and an optionally-shifted register value, and writes the result to the destination register.",
+        "syntax": [
+          "EOR <Wd>, <Wn>, <Wm>{, <shift> #<amount>}",
+          "EOR <Xd>, <Xn>, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = ShiftReg(m, shift_type, shift_amount, datasize);\nX[d, datasize] = operand1 EOR operand2;"
+      }
+    ],
+    "MVN": [
+      {
+        "c62_id": "C6.2.293",
+        "title": "MVN",
+        "page": 2438,
+        "page_end": 2439,
+        "summary": "Bitwise NOT\n\nThis instruction writes the bitwise inverse of a register value to the destination register.\n\nThis is an alias of ORN (shifted register). This means:\n\n• The encodings in this description are named to match the encodings of ORN (shifted register). • The description of ORN (shifted register) gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "MVN <Wd>, <Wm>{, <shift> #<amount>}  ==  ORN <Wd>, WZR, <Wm>{, <shift> #<amount>}",
+          "MVN <Xd>, <Xm>{, <shift> #<amount>}  ==  ORN <Xd>, XZR, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "The description of ORN (shifted register) gives the operational pseudocode for this instruction."
+      }
+    ],
+    "ASR": [
+      {
+        "c62_id": "C6.2.19",
+        "title": "ASR (register)",
+        "page": 1820,
+        "page_end": 1821,
+        "summary": "Arithmetic shift right (register)\n\nThis instruction shifts a register value right by a variable number of bits, shifting in copies of its sign bit, and writes the result to the destination register. The value of the second source register modulo the register size in bits gives the number of bits by which the first source register is right-shifted.\n\nThis is an alias of ASRV. This means:\n\n• The encodings in this description are named to match the encodings of ASRV. • The description of ASRV gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "ASR <Wd>, <Wn>, <Wm>  ==  ASRV <Wd>, <Wn>, <Wm>",
+          "ASR <Xd>, <Xn>, <Xm>  ==  ASRV <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "The description of ASRV gives the operational pseudocode for this instruction."
+      },
+      {
+        "c62_id": "C6.2.20",
+        "title": "ASR (immediate)",
+        "page": 1822,
+        "page_end": 1823,
+        "summary": "Arithmetic shift right (immediate)\n\nThis instruction shifts a register value right by an immediate number of bits, shifting in copies of the sign bit in the upper bits and zeros in the lower bits, and writes the result to the destination register.\n\nThis is an alias of SBFM. This means:\n\n• The encodings in this description are named to match the encodings of SBFM. • The description of SBFM gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "ASR <Wd>, <Wn>, #<shift>  ==  SBFM <Wd>, <Wn>, #<shift>, #31",
+          "ASR <Xd>, <Xn>, #<shift>  ==  SBFM <Xd>, <Xn>, #<shift>, #63"
+        ],
+        "operation_asl": "The description of SBFM gives the operational pseudocode for this instruction."
+      }
+    ],
+    "ASRV": [
+      {
+        "c62_id": "C6.2.21",
+        "title": "ASRV",
+        "page": 1824,
+        "page_end": 1825,
+        "summary": "Arithmetic shift right variable\n\nThis instruction shifts a register value right by a variable number of bits, shifting in copies of its sign bit, and writes the result to the destination register. The value of the second source register modulo the register size in bits gives the number of bits by which the first source register is right-shifted.\n\nThis instruction is used by the alias ASR (register).",
+        "syntax": [
+          "ASRV <Wd>, <Wn>, <Wm>",
+          "ASRV <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "constant bits(datasize) operand2 = X[m, datasize];\nX[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);"
+      }
+    ],
+    "LSL": [
+      {
+        "c62_id": "C6.2.268",
+        "title": "LSL (register)",
+        "page": 2389,
+        "page_end": 2390,
+        "summary": "Logical shift left (register)\n\nThis instruction shifts a register value left by a variable number of bits, shifting in zeros, and writes the result to the destination register. The value of the second source register modulo the register size in bits gives the number of bits by which the first source register is left-shifted.\n\nThis is an alias of LSLV. This means:\n\n• The encodings in this description are named to match the encodings of LSLV. • The description of LSLV gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "LSL <Wd>, <Wn>, <Wm>  ==  LSLV <Wd>, <Wn>, <Wm>",
+          "LSL <Xd>, <Xn>, <Xm>  ==  LSLV <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "The description of LSLV gives the operational pseudocode for this instruction."
+      },
+      {
+        "c62_id": "C6.2.269",
+        "title": "LSL (immediate)",
+        "page": 2391,
+        "page_end": 2392,
+        "summary": "Logical shift left (immediate)\n\nThis instruction shifts a register value left by an immediate number of bits, shifting in zeros, and writes the result to the destination register.\n\nThis is an alias of UBFM. This means:\n\n• The encodings in this description are named to match the encodings of UBFM. • The description of UBFM gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "LSL <Wd>, <Wn>, #<shift>  ==  UBFM <Wd>, <Wn>, #(-<shift> MOD 32), #(31-<shift>)",
+          "LSL <Xd>, <Xn>, #<shift>  ==  UBFM <Xd>, <Xn>, #(-<shift> MOD 64), #(63-<shift>)"
+        ],
+        "operation_asl": "The description of UBFM gives the operational pseudocode for this instruction."
+      }
+    ],
+    "LSLV": [
+      {
+        "c62_id": "C6.2.270",
+        "title": "LSLV",
+        "page": 2393,
+        "page_end": 2394,
+        "summary": "Logical shift left variable\n\nThis instruction shifts a register value left by a variable number of bits, shifting in zeros, and writes the result to the destination register. The value of the second source register modulo the register size in bits gives the number of bits by which the first source register is left-shifted.\n\nThis instruction is used by the alias LSL (register).",
+        "syntax": [
+          "LSLV <Wd>, <Wn>, <Wm>",
+          "LSLV <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "constant bits(datasize) operand2 = X[m, datasize];\nX[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);"
+      }
+    ],
+    "LSR": [
+      {
+        "c62_id": "C6.2.271",
+        "title": "LSR (register)",
+        "page": 2395,
+        "page_end": 2396,
+        "summary": "Logical shift right (register)\n\nThis instruction shifts a register value right by a variable number of bits, shifting in zeros, and writes the result to the destination register. The value of the second source register modulo the register size in bits gives the number of bits by which the first source register is right-shifted.\n\nThis is an alias of LSRV. This means:\n\n• The encodings in this description are named to match the encodings of LSRV. • The description of LSRV gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "LSR <Wd>, <Wn>, <Wm>  ==  LSRV <Wd>, <Wn>, <Wm>",
+          "LSR <Xd>, <Xn>, <Xm>  ==  LSRV <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "The description of LSRV gives the operational pseudocode for this instruction."
+      },
+      {
+        "c62_id": "C6.2.272",
+        "title": "LSR (immediate)",
+        "page": 2397,
+        "page_end": 2398,
+        "summary": "Logical shift right (immediate)\n\nThis instruction shifts a register value right by an immediate number of bits, shifting in zeros, and writes the result to the destination register.\n\nThis is an alias of UBFM. This means:\n\n• The encodings in this description are named to match the encodings of UBFM. • The description of UBFM gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "LSR <Wd>, <Wn>, #<shift>  ==  UBFM <Wd>, <Wn>, #<shift>, #31",
+          "LSR <Xd>, <Xn>, #<shift>  ==  UBFM <Xd>, <Xn>, #<shift>, #63"
+        ],
+        "operation_asl": "The description of UBFM gives the operational pseudocode for this instruction."
+      }
+    ],
+    "LSRV": [
+      {
+        "c62_id": "C6.2.273",
+        "title": "LSRV",
+        "page": 2399,
+        "page_end": 2400,
+        "summary": "Logical shift right variable\n\nThis instruction shifts a register value right by a variable number of bits, shifting in zeros, and writes the result to the destination register. The value of the second source register modulo the register size in bits gives the number of bits by which the first source register is right-shifted.\n\nThis instruction is used by the alias LSR (register).",
+        "syntax": [
+          "LSRV <Wd>, <Wn>, <Wm>",
+          "LSRV <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "constant bits(datasize) operand2 = X[m, datasize];\nX[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);"
+      }
+    ],
+    "ROR": [
+      {
+        "c62_id": "C6.2.346",
+        "title": "ROR (immediate)",
+        "page": 2539,
+        "page_end": 2540,
+        "summary": "Rotate right (immediate)\n\nThis instruction provides the value of the contents of a register rotated by a variable number of bits. The bits that are rotated off the right end are inserted into the vacated bit positions on the left.\n\nThis is an alias of EXTR. This means:\n\n• The encodings in this description are named to match the encodings of EXTR. • The description of EXTR gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "ROR <Wd>, <Ws>, #<shift>  ==  EXTR <Wd>, <Ws>, <Ws>, #<shift>",
+          "ROR <Xd>, <Xs>, #<shift>  ==  EXTR <Xd>, <Xs>, <Xs>, #<shift>"
+        ],
+        "operation_asl": "The description of EXTR gives the operational pseudocode for this instruction."
+      },
+      {
+        "c62_id": "C6.2.347",
+        "title": "ROR (register)",
+        "page": 2541,
+        "page_end": 2542,
+        "summary": "Rotate right (register)\n\nThis instruction provides the value of the contents of a register rotated by a variable number of bits. The bits that are rotated off the right end are inserted into the vacated bit positions on the left. The value of the second source register modulo the register size in bits gives the number of bits by which the first source register is right-shifted.\n\nThis is an alias of RORV. This means:\n\n• The encodings in this description are named to match the encodings of RORV. • The description of RORV gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "ROR <Wd>, <Wn>, <Wm>  ==  RORV <Wd>, <Wn>, <Wm>",
+          "ROR <Xd>, <Xn>, <Xm>  ==  RORV <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "The description of RORV gives the operational pseudocode for this instruction."
+      }
+    ],
+    "RORV": [
+      {
+        "c62_id": "C6.2.348",
+        "title": "RORV",
+        "page": 2543,
+        "page_end": 2544,
+        "summary": "Rotate right variable\n\nThis instruction provides the value of the contents of a register rotated by a variable number of bits. The bits that are rotated off the right end are inserted into the vacated bit positions on the left. The value of the second source register modulo the register size in bits gives the number of bits by which the first source register is right-shifted.\n\nThis instruction is used by the alias ROR (register).",
+        "syntax": [
+          "RORV <Wd>, <Wn>, <Wm>",
+          "RORV <Xd>, <Xn>, <Xm>"
+        ],
+        "operation_asl": "constant bits(datasize) operand2 = X[m, datasize];\nX[d, datasize] = ShiftReg(n, shift_type, UInt(operand2) MOD datasize, datasize);"
+      }
+    ],
+    "BFXIL": [
+      {
+        "c62_id": "C6.2.40",
+        "title": "BFXIL",
+        "page": 1854,
+        "page_end": 1855,
+        "summary": "Bitfield extract and insert at low end\n\nThis instruction copies a bitfield of <width> bits starting from bit position <lsb> in the source register to the least significant bits of the destination register, leaving the other destination bits unchanged.\n\nThis is an alias of BFM. This means:\n\n• The encodings in this description are named to match the encodings of BFM. • The description of BFM gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "BFXIL <Wd>, <Wn>, #<lsb>, #<width>  ==  BFM <Wd>, <Wn>, #<lsb>, #(<lsb>+<width>-1)",
+          "BFXIL <Xd>, <Xn>, #<lsb>, #<width>  ==  BFM <Xd>, <Xn>, #<lsb>, #(<lsb>+<width>-1)"
+        ],
+        "operation_asl": "The description of BFM gives the operational pseudocode for this instruction."
+      },
+      {
+        "c62_id": "C6.2.39",
+        "title": "BFM",
+        "page": 1852,
+        "page_end": 1853,
+        "summary": "Bitfield move\n\nThis instruction is usually accessed via one of its aliases, which are always preferred for disassembly.\n\nIf <imms> is greater than or equal to <immr>, this copies a bitfield of (<imms>-<immr>+1) bits starting from bit position <immr> in the source register to the least significant bits of the destination register.\n\nIf <imms> is less than <immr>, this copies a bitfield of (<imms>+1) bits from the least significant bits of the source register to bit position (regsize-<immr>) of the destination register, where regsize is the destination register size of 32 or 64 bits.\n\nIn both cases, the other bits of the destination register remain unchanged.\n\nThis instruction is used by the aliases BFC, BFI, and BFXIL.",
+        "syntax": [
+          "BFM <Wd>, <Wn>, #<immr>, #<imms>",
+          "BFM <Xd>, <Xn>, #<immr>, #<imms>"
+        ],
+        "operation_asl": "constant bits(datasize) dst = X[d, datasize];\nconstant bits(datasize) src = X[n, datasize];\n// Perform bitfield move on low bits\nconstant bits(datasize) bot = (dst AND NOT(wmask)) OR (ROR(src, r) AND wmask);\n// Combine extension bits and result bits\nX[d, datasize] = (dst AND NOT(tmask)) OR (bot AND tmask);"
+      }
+    ],
+    "SBFX": [
+      {
+        "c62_id": "C6.2.355",
+        "title": "SBFX",
+        "page": 2556,
+        "page_end": 2557,
+        "summary": "Signed bitfield extract\n\nThis instruction copies a bitfield of <width> bits starting from bit position <lsb> in the source register to the least significant bits of the destination register, and sets destination bits above the bitfield to a copy of the most significant bit of the bitfield.\n\nThis is an alias of SBFM. This means:\n\n• The encodings in this description are named to match the encodings of SBFM. • The description of SBFM gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "SBFX <Wd>, <Wn>, #<lsb>, #<width>  ==  SBFM <Wd>, <Wn>, #<lsb>, #(<lsb>+<width>-1)",
+          "SBFX <Xd>, <Xn>, #<lsb>, #<width>  ==  SBFM <Xd>, <Xn>, #<lsb>, #(<lsb>+<width>-1)"
+        ],
+        "operation_asl": "The description of SBFM gives the operational pseudocode for this instruction."
+      },
+      {
+        "c62_id": "C6.2.354",
+        "title": "SBFM",
+        "page": 2554,
+        "page_end": 2555,
+        "summary": "Signed bitfield move\n\nThis instruction is usually accessed via one of its aliases, which are always preferred for disassembly.\n\nIf <imms> is greater than or equal to <immr>, this copies a bitfield of (<imms>-<immr>+1) bits starting from bit position <immr> in the source register to the least significant bits of the destination register.\n\nIf <imms> is less than <immr>, this copies a bitfield of (<imms>+1) bits from the least significant bits of the source register to bit position (regsize-<immr>) of the destination register, where regsize is the destination register size of 32 or 64 bits.\n\nIn both cases, the destination bits below the bitfield are set to zero, and the bits above the bitfield are set to a copy of the most significant bit of the bitfield.\n\nThis instruction is used by the aliases ASR (immediate), SBFIZ, SBFX, SXTB, SXTH, and SXTW.",
+        "syntax": [
+          "SBFM <Wd>, <Wn>, #<immr>, #<imms>",
+          "SBFM <Xd>, <Xn>, #<immr>, #<imms>"
+        ],
+        "operation_asl": "constant bits(datasize) src = X[n, datasize];\n// Perform bitfield move on low bits\nconstant bits(datasize) bot = ROR(src, r) AND wmask;\nconstant bits(datasize) top = Replicate(src<s>, datasize);\n// Combine extension bits and result bits\nX[d, datasize] = (top AND NOT(tmask)) OR (bot AND tmask);"
+      }
+    ],
+    "UBFX": [
+      {
+        "c62_id": "C6.2.487",
+        "title": "UBFX",
+        "page": 2843,
+        "page_end": 2844,
+        "summary": "Unsigned bitfield extract\n\nThis instruction copies a bitfield of <width> bits starting from bit position <lsb> in the source register to the least significant bits of the destination register, and sets destination bits above the bitfield to zero.\n\nThis is an alias of UBFM. This means:\n\n• The encodings in this description are named to match the encodings of UBFM. • The description of UBFM gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "UBFX <Wd>, <Wn>, #<lsb>, #<width>  ==  UBFM <Wd>, <Wn>, #<lsb>, #(<lsb>+<width>-1)",
+          "UBFX <Xd>, <Xn>, #<lsb>, #<width>  ==  UBFM <Xd>, <Xn>, #<lsb>, #(<lsb>+<width>-1)"
+        ],
+        "operation_asl": "The description of UBFM gives the operational pseudocode for this instruction."
+      },
+      {
+        "c62_id": "C6.2.486",
+        "title": "UBFM",
+        "page": 2841,
+        "page_end": 2842,
+        "summary": "Unsigned bitfield move\n\nThis instruction is usually accessed via one of its aliases, which are always preferred for disassembly.\n\nIf <imms> is greater than or equal to <immr>, this copies a bitfield of (<imms>-<immr>+1) bits starting from bit position <immr> in the source register to the least significant bits of the destination register.\n\nIf <imms> is less than <immr>, this copies a bitfield of (<imms>+1) bits from the least significant bits of the source register to bit position (regsize-<immr>) of the destination register, where regsize is the destination register size of 32 or 64 bits.\n\nIn both cases, the destination bits below and above the bitfield are set to zero.\n\nThis instruction is used by the aliases LSL (immediate), LSR (immediate), UBFIZ, UBFX, UXTB, and UXTH.",
+        "syntax": [
+          "UBFM <Wd>, <Wn>, #<immr>, #<imms>",
+          "UBFM <Xd>, <Xn>, #<immr>, #<imms>"
+        ],
+        "operation_asl": "constant bits(datasize) src = X[n, datasize];\n// Perform bitfield move on low bits\nconstant bits(datasize) bot = ROR(src, r) AND wmask;\n// Combine extension bits and result bits\nX[d, datasize] = bot AND tmask;"
+      }
+    ],
+    "BFC": [
+      {
+        "c62_id": "C6.2.37",
+        "title": "BFC",
+        "page": 1848,
+        "page_end": 1849,
+        "summary": "Bitfield clear\n\nThis instruction sets a bitfield of <width> bits at bit position <lsb> of the destination register to zero, leaving the other destination bits unchanged.\n\nThis is an alias of BFM. This means:\n\n• The encodings in this description are named to match the encodings of BFM. • The description of BFM gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "BFC <Wd>, #<lsb>, #<width>  ==  BFM <Wd>, WZR, #(-<lsb> MOD 32), #(<width>-1)",
+          "BFC <Xd>, #<lsb>, #<width>  ==  BFM <Xd>, XZR, #(-<lsb> MOD 64), #(<width>-1)"
+        ],
+        "operation_asl": "The description of BFM gives the operational pseudocode for this instruction."
+      },
+      {
+        "c62_id": "C6.2.39",
+        "title": "BFM",
+        "page": 1852,
+        "page_end": 1853,
+        "summary": "Bitfield move\n\nThis instruction is usually accessed via one of its aliases, which are always preferred for disassembly.\n\nIf <imms> is greater than or equal to <immr>, this copies a bitfield of (<imms>-<immr>+1) bits starting from bit position <immr> in the source register to the least significant bits of the destination register.\n\nIf <imms> is less than <immr>, this copies a bitfield of (<imms>+1) bits from the least significant bits of the source register to bit position (regsize-<immr>) of the destination register, where regsize is the destination register size of 32 or 64 bits.\n\nIn both cases, the other bits of the destination register remain unchanged.\n\nThis instruction is used by the aliases BFC, BFI, and BFXIL.",
+        "syntax": [
+          "BFM <Wd>, <Wn>, #<immr>, #<imms>",
+          "BFM <Xd>, <Xn>, #<immr>, #<imms>"
+        ],
+        "operation_asl": "constant bits(datasize) dst = X[d, datasize];\nconstant bits(datasize) src = X[n, datasize];\n// Perform bitfield move on low bits\nconstant bits(datasize) bot = (dst AND NOT(wmask)) OR (ROR(src, r) AND wmask);\n// Combine extension bits and result bits\nX[d, datasize] = (dst AND NOT(tmask)) OR (bot AND tmask);"
+      }
+    ],
+    "BFI": [
+      {
+        "c62_id": "C6.2.38",
+        "title": "BFI",
+        "page": 1850,
+        "page_end": 1851,
+        "summary": "Bitfield insert\n\nThis instruction copies a bitfield of <width> bits from the least significant bits of the source register to bit position <lsb> of the destination register, leaving the other destination bits unchanged.\n\nThis is an alias of BFM. This means:\n\n• The encodings in this description are named to match the encodings of BFM. • The description of BFM gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "BFI <Wd>, <Wn>, #<lsb>, #<width>  ==  BFM <Wd>, <Wn>, #(-<lsb> MOD 32), #(<width>-1)",
+          "BFI <Xd>, <Xn>, #<lsb>, #<width>  ==  BFM <Xd>, <Xn>, #(-<lsb> MOD 64), #(<width>-1)"
+        ],
+        "operation_asl": "The description of BFM gives the operational pseudocode for this instruction."
+      },
+      {
+        "c62_id": "C6.2.39",
+        "title": "BFM",
+        "page": 1852,
+        "page_end": 1853,
+        "summary": "Bitfield move\n\nThis instruction is usually accessed via one of its aliases, which are always preferred for disassembly.\n\nIf <imms> is greater than or equal to <immr>, this copies a bitfield of (<imms>-<immr>+1) bits starting from bit position <immr> in the source register to the least significant bits of the destination register.\n\nIf <imms> is less than <immr>, this copies a bitfield of (<imms>+1) bits from the least significant bits of the source register to bit position (regsize-<immr>) of the destination register, where regsize is the destination register size of 32 or 64 bits.\n\nIn both cases, the other bits of the destination register remain unchanged.\n\nThis instruction is used by the aliases BFC, BFI, and BFXIL.",
+        "syntax": [
+          "BFM <Wd>, <Wn>, #<immr>, #<imms>",
+          "BFM <Xd>, <Xn>, #<immr>, #<imms>"
+        ],
+        "operation_asl": "constant bits(datasize) dst = X[d, datasize];\nconstant bits(datasize) src = X[n, datasize];\n// Perform bitfield move on low bits\nconstant bits(datasize) bot = (dst AND NOT(wmask)) OR (ROR(src, r) AND wmask);\n// Combine extension bits and result bits\nX[d, datasize] = (dst AND NOT(tmask)) OR (bot AND tmask);"
+      }
+    ],
+    "EXTR": [
+      {
+        "c62_id": "C6.2.160",
+        "title": "EXTR",
+        "page": 2174,
+        "page_end": 2175,
+        "summary": "Extract register\n\nThis instruction extracts a register from a pair of registers.\n\nThis instruction is used by the alias ROR (immediate).",
+        "syntax": [
+          "EXTR <Wd>, <Wn>, <Wm>, #<lsb>",
+          "EXTR <Xd>, <Xn>, <Xm>, #<lsb>"
+        ],
+        "operation_asl": "bits(datasize) result;\nconstant bits(datasize) operand1 = X[n, datasize];\nconstant bits(datasize) operand2 = X[m, datasize];\nconstant bits(2*datasize) concat = operand1:operand2;\nresult = concat<(lsb+datasize)-1:lsb>;\nX[d, datasize] = result;"
+      }
+    ],
+    "MOV": [
+      {
+        "c62_id": "C6.2.281",
+        "title": "MOV (register)",
+        "page": 2413,
+        "page_end": 2414,
+        "summary": "Move register value\n\nThis instruction copies the value in a source register to the destination register.\n\nThis is an alias of ORR (shifted register). This means:\n\n• The encodings in this description are named to match the encodings of ORR (shifted register). • The description of ORR (shifted register) gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "MOV <Wd>, <Wm>  ==  ORR <Wd>, WZR, <Wm>",
+          "MOV <Xd>, <Xm>  ==  ORR <Xd>, XZR, <Xm>"
+        ],
+        "operation_asl": "The description of ORR (shifted register) gives the operational pseudocode for this instruction."
+      },
+      {
+        "c62_id": "C6.2.277",
+        "title": "MOV (to/from SP)",
+        "page": 2407,
+        "page_end": 2408,
+        "summary": "Move register value to or from SP\n\nThis instruction copies the value of a register to or from the stack pointer.\n\nThis is an alias of ADD (immediate). This means:\n\n• The encodings in this description are named to match the encodings of ADD (immediate). • The description of ADD (immediate) gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "MOV <Wd|WSP>, <Wn|WSP>  ==  ADD <Wd|WSP>, <Wn|WSP>, #0",
+          "MOV <Xd|SP>, <Xn|SP>  ==  ADD <Xd|SP>, <Xn|SP>, #0"
+        ],
+        "operation_asl": "The description of ADD (immediate) gives the operational pseudocode for this instruction."
+      }
+    ],
+    "MOVN": [
+      {
+        "c62_id": "C6.2.283",
+        "title": "MOVN",
+        "page": 2416,
+        "page_end": 2417,
+        "summary": "Move wide with NOT\n\nThis instruction moves the inverse of an optionally-shifted 16-bit immediate value to a register.\n\nThis instruction is used by the alias MOV (inverted wide immediate).",
+        "syntax": [
+          "MOVN <Wd>, #<imm>{, LSL #<shift>}",
+          "MOVN <Xd>, #<imm>{, LSL #<shift>}"
+        ],
+        "operation_asl": "bits(datasize) result = Zeros(datasize);\nresult<pos+15:pos> = imm;\nX[d, datasize] = NOT(result);"
+      }
+    ],
+    "MOVZ": [
+      {
+        "c62_id": "C6.2.284",
+        "title": "MOVZ",
+        "page": 2418,
+        "page_end": 2419,
+        "summary": "Move wide with zero\n\nThis instruction moves an optionally-shifted 16-bit immediate value to a register.\n\nThis instruction is used by the alias MOV (wide immediate).",
+        "syntax": [
+          "MOVZ <Wd>, #<imm>{, LSL #<shift>}",
+          "MOVZ <Xd>, #<imm>{, LSL #<shift>}"
+        ],
+        "operation_asl": "bits(datasize) result = Zeros(datasize);\nresult<pos+15:pos> = imm;\nX[d, datasize] = result;"
+      }
+    ],
+    "MOVK": [
+      {
+        "c62_id": "C6.2.282",
+        "title": "MOVK",
+        "page": 2415,
+        "page_end": 2415,
+        "summary": "Move wide with keep\n\nThis instruction moves an optionally-shifted 16-bit immediate value into a register, keeping other bits unchanged.",
+        "syntax": [
+          "MOVK <Wd>, #<imm>{, LSL #<shift>}",
+          "MOVK <Xd>, #<imm>{, LSL #<shift>}"
+        ],
+        "operation_asl": "bits(datasize) result = X[d, datasize];\nresult<pos+15:pos> = imm;\nX[d, datasize] = result;"
+      }
+    ],
+    "ADR": [
+      {
+        "c62_id": "C6.2.12",
+        "title": "ADR",
+        "page": 1809,
+        "page_end": 1809,
+        "summary": "Form PC-relative address\n\nThis instruction adds an immediate value to the PC value to form a PC-relative address, and writes the result to the destination register.",
+        "syntax": [
+          "ADR <Xd>, <label>"
+        ],
+        "operation_asl": "X[d, 64] = PC64 + imm;"
+      }
+    ],
+    "CMP": [
+      {
+        "c62_id": "C6.2.96",
+        "title": "CMP (immediate)",
+        "page": 1951,
+        "page_end": 1952,
+        "summary": "Compare (immediate)\n\nThis instruction subtracts an optionally-shifted immediate value from a register value. It updates the condition flags based on the result, and discards the result.\n\nThis is an alias of SUBS (immediate). This means:\n\n• The encodings in this description are named to match the encodings of SUBS (immediate). • The description of SUBS (immediate) gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "CMP <Wn|WSP>, #<imm>{, <shift>}  ==  CMP <Xn|SP>, #<imm>{, <shift>}"
+        ],
+        "operation_asl": "The description of SUBS (immediate) gives the operational pseudocode for this instruction."
+      },
+      {
+        "c62_id": "C6.2.97",
+        "title": "CMP (shifted register)",
+        "page": 1953,
+        "page_end": 1954,
+        "summary": "Compare (shifted register)\n\nThis instruction subtracts an optionally-shifted register value from a register value. It updates the condition flags based on the result, and discards the result.\n\nThis is an alias of SUBS (shifted register). This means:\n\n• The encodings in this description are named to match the encodings of SUBS (shifted register). • The description of SUBS (shifted register) gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "CMP <Wn>, <Wm>{, <shift> #<amount>}  ==  CMP <Xn>, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "The description of SUBS (shifted register) gives the operational pseudocode for this instruction."
+      }
+    ],
+    "CMN": [
+      {
+        "c62_id": "C6.2.93",
+        "title": "CMN (immediate)",
+        "page": 1944,
+        "page_end": 1945,
+        "summary": "Compare negative (immediate)\n\nThis instruction adds a register value and an optionally-shifted immediate value. It updates the condition flags based on the result, and discards the result.\n\nThis is an alias of ADDS (immediate). This means:\n\n• The encodings in this description are named to match the encodings of ADDS (immediate). • The description of ADDS (immediate) gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "CMN <Wn|WSP>, #<imm>{, <shift>}  ==  CMN <Xn|SP>, #<imm>{, <shift>}"
+        ],
+        "operation_asl": "The description of ADDS (immediate) gives the operational pseudocode for this instruction."
+      },
+      {
+        "c62_id": "C6.2.94",
+        "title": "CMN (shifted register)",
+        "page": 1946,
+        "page_end": 1947,
+        "summary": "Compare negative (shifted register)\n\nThis instruction adds a register value and an optionally-shifted register value. It updates the condition flags based on the result, and discards the result.\n\nThis is an alias of ADDS (shifted register). This means:\n\n• The encodings in this description are named to match the encodings of ADDS (shifted register). • The description of ADDS (shifted register) gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "CMN <Wn>, <Wm>{, <shift> #<amount>}  ==  CMN <Xn>, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "The description of ADDS (shifted register) gives the operational pseudocode for this instruction."
+      }
+    ],
+    "TST": [
+      {
+        "c62_id": "C6.2.483",
+        "title": "TST (immediate)",
+        "page": 2836,
+        "page_end": 2836,
+        "summary": "Test bits (immediate)\n\nThis instruction performs a bitwise AND of a register value and an immediate value, and discards the results. It updates the condition flags based on the result.\n\nThis is an alias of ANDS (immediate). This means:\n\n• The encodings in this description are named to match the encodings of ANDS (immediate). • The description of ANDS (immediate) gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "TST <Wn>, #<imm>  ==  TST <Xn>, #<imm>"
+        ],
+        "operation_asl": "The description of ANDS (immediate) gives the operational pseudocode for this instruction."
+      },
+      {
+        "c62_id": "C6.2.484",
+        "title": "TST (shifted register)",
+        "page": 2837,
+        "page_end": 2838,
+        "summary": "Test (shifted register)\n\nThis instruction performs a bitwise AND operation on a register value and an optionally-shifted register value. It updates the condition flags based on the result, and discards the result.\n\nThis is an alias of ANDS (shifted register). This means:\n\n• The encodings in this description are named to match the encodings of ANDS (shifted register). • The description of ANDS (shifted register) gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "TST <Wn>, <Wm>{, <shift> #<amount>}  ==  TST <Xn>, <Xm>{, <shift> #<amount>}"
+        ],
+        "operation_asl": "The description of ANDS (shifted register) gives the operational pseudocode for this instruction."
+      }
+    ],
+    "LDR": [
+      {
+        "c62_id": "C6.2.215",
+        "title": "LDR (immediate)",
+        "page": 2271,
+        "page_end": 2273,
+        "summary": "Load register (immediate)\n\nThis instruction loads a word or doubleword from memory and writes it to a register. The address that is used for the load is calculated from a base register and an immediate offset. For information about addressing modes, see Load/Store addressing modes. The Unsigned offset variant scales the immediate offset value by the size of the value accessed before adding it to the base register value.\n\nIt has encodings from 3 classes: Post-index, Pre-index, and Unsigned offset",
+        "syntax": [
+          "LDR <Wt>, [<Xn|SP>], #<simm>",
+          "LDR <Xt>, [<Xn|SP>], #<simm>",
+          "LDR <Wt>, [<Xn|SP>, #<simm>]!",
+          "LDR <Xt>, [<Xn|SP>, #<simm>]!",
+          "LDR <Wt>, [<Xn|SP>{, #<pimm>}]",
+          "LDR <Xt>, [<Xn|SP>{, #<pimm>}]"
+        ],
+        "operation_asl": "bits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_LOAD, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\nif !postindex then\n    address = AddressAdd(address, offset, accdesc);\nconstant bits(datasize) data = Mem[address, datasize DIV 8, accdesc];\nX[t, regsize] = ZeroExtend(data, regsize);\nif wback then\n    if wb_unknown then\n        address = bits(64) UNKNOWN;\n    elsif postindex then\n        address = AddressAdd(address, offset, accdesc);\n    if n == 31 then\n        SP[64] = address;\n    else\n        X[n, 64] = address;"
+      },
+      {
+        "c62_id": "C6.2.217",
+        "title": "LDR (register)",
+        "page": 2275,
+        "page_end": 2277,
+        "summary": "Load register (register)\n\nThis instruction calculates an address from a base register value and an offset register value, loads a word from memory, and writes it to a register. The offset register value can optionally be shifted and extended. For information about addressing modes, see Load/Store addressing modes.",
+        "syntax": [
+          "LDR <Wt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]",
+          "LDR <Xt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]"
+        ],
+        "operation_asl": "constant bits(64) offset = ExtendReg(m, extend_type, shift, 64);\nbits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_LOAD, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\naddress = AddressAdd(address, offset, accdesc);\nconstant bits(datasize) data = Mem[address, datasize DIV 8, accdesc];\nX[t, regsize] = ZeroExtend(data, regsize);"
+      }
+    ],
+    "LDRB": [
+      {
+        "c62_id": "C6.2.219",
+        "title": "LDRB (immediate)",
+        "page": 2280,
+        "page_end": 2282,
+        "summary": "Load register byte (immediate)\n\nThis instruction loads a byte from memory, zero-extends it, and writes the result to a register. The address that is used for the load is calculated from a base register and an immediate offset. For information about addressing modes, see Load/Store addressing modes.\n\nIt has encodings from 3 classes: Post-index, Pre-index, and Unsigned offset",
+        "syntax": [
+          "LDRB <Wt>, [<Xn|SP>], #<simm>",
+          "LDRB <Wt>, [<Xn|SP>, #<simm>]!",
+          "LDRB <Wt>, [<Xn|SP>{, #<pimm>}]"
+        ],
+        "operation_asl": "bits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_LOAD, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\nif !postindex then\n    address = AddressAdd(address, offset, accdesc);\nconstant bits(8) data = Mem[address, 1, accdesc];\nX[t, 32] = ZeroExtend(data, 32);\nif wback then\n    if wb_unknown then\n        address = bits(64) UNKNOWN;\n    elsif postindex then\n        address = AddressAdd(address, offset, accdesc);\n    if n == 31 then\n        SP[64] = address;\n    else\n        X[n, 64] = address;"
+      },
+      {
+        "c62_id": "C6.2.220",
+        "title": "LDRB (register)",
+        "page": 2283,
+        "page_end": 2284,
+        "summary": "Load register byte (register)\n\nThis instruction calculates an address from a base register value and an offset register value, loads a byte from memory, zero-extends it, and writes it to a register. For information about addressing modes, see Load/Store addressing modes.",
+        "syntax": [
+          "LDRB <Wt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]",
+          "LDRB <Wt>, [<Xn|SP>, <Xm>{, LSL <amount>}]"
+        ],
+        "operation_asl": "constant bits(64) offset = ExtendReg(m, extend_type, shift, 64);\nbits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_LOAD, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\naddress = AddressAdd(address, offset, accdesc);\nconstant bits(8) data = Mem[address, 1, accdesc];\nX[t, 32] = ZeroExtend(data, 32);"
+      }
+    ],
+    "LDRH": [
+      {
+        "c62_id": "C6.2.221",
+        "title": "LDRH (immediate)",
+        "page": 2285,
+        "page_end": 2287,
+        "summary": "Load register halfword (immediate)\n\nThis instruction loads a halfword from memory, zero-extends it, and writes the result to a register. The address that is used for the load is calculated from a base register and an immediate offset. For information about addressing modes, see Load/Store addressing modes.\n\nIt has encodings from 3 classes: Post-index, Pre-index, and Unsigned offset",
+        "syntax": [
+          "LDRH <Wt>, [<Xn|SP>], #<simm>",
+          "LDRH <Wt>, [<Xn|SP>, #<simm>]!",
+          "LDRH <Wt>, [<Xn|SP>{, #<pimm>}]"
+        ],
+        "operation_asl": "bits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_LOAD, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\nif !postindex then\n    address = AddressAdd(address, offset, accdesc);\nconstant bits(16) data = Mem[address, 2, accdesc];\nX[t, 32] = ZeroExtend(data, 32);\nif wback then\n    if wb_unknown then\n        address = bits(64) UNKNOWN;\n    elsif postindex then\n        address = AddressAdd(address, offset, accdesc);\n    if n == 31 then\n        SP[64] = address;\n    else\n        X[n, 64] = address;"
+      },
+      {
+        "c62_id": "C6.2.222",
+        "title": "LDRH (register)",
+        "page": 2288,
+        "page_end": 2289,
+        "summary": "Load register halfword (register)\n\nThis instruction calculates an address from a base register value and an offset register value, loads a halfword from memory, zero-extends it, and writes it to a register. For information about addressing modes, see Load/Store addressing modes.",
+        "syntax": [
+          "LDRH <Wt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]"
+        ],
+        "operation_asl": "constant bits(64) offset = ExtendReg(m, extend_type, shift, 64);\nbits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_LOAD, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\naddress = AddressAdd(address, offset, accdesc);\nconstant bits(16) data = Mem[address, 2, accdesc];\nX[t, 32] = ZeroExtend(data, 32);"
+      }
+    ],
+    "LDRSB": [
+      {
+        "c62_id": "C6.2.223",
+        "title": "LDRSB (immediate)",
+        "page": 2290,
+        "page_end": 2292,
+        "summary": "Load register signed byte (immediate)\n\nThis instruction loads a byte from memory, sign-extends it to either 32 bits or 64 bits, and writes the result to a register. The address that is used for the load is calculated from a base register and an immediate offset. For information about addressing modes, see Load/Store addressing modes.\n\nIt has encodings from 3 classes: Post-index, Pre-index, and Unsigned offset",
+        "syntax": [
+          "LDRSB <Wt>, [<Xn|SP>], #<simm>",
+          "LDRSB <Xt>, [<Xn|SP>], #<simm>",
+          "LDRSB <Wt>, [<Xn|SP>, #<simm>]!",
+          "LDRSB <Xt>, [<Xn|SP>, #<simm>]!",
+          "LDRSB <Wt>, [<Xn|SP>{, #<pimm>}]",
+          "LDRSB <Xt>, [<Xn|SP>{, #<pimm>}]"
+        ],
+        "operation_asl": "bits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_LOAD, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\nif !postindex then\n    address = AddressAdd(address, offset, accdesc);\nconstant bits(8) data = Mem[address, 1, accdesc];\nX[t, regsize] = SignExtend(data, regsize);\nif wback then\n    if wb_unknown then\n        address = bits(64) UNKNOWN;\n    elsif postindex then\n        address = AddressAdd(address, offset, accdesc);\n    if n == 31 then\n        SP[64] = address;\n    else\n        X[n, 64] = address;"
+      },
+      {
+        "c62_id": "C6.2.224",
+        "title": "LDRSB (register)",
+        "page": 2293,
+        "page_end": 2294,
+        "summary": "Load register signed byte (register)\n\nThis instruction calculates an address from a base register value and an offset register value, loads a byte from memory, sign-extends it, and writes it to a register. For information about addressing modes, see Load/Store addressing modes.",
+        "syntax": [
+          "LDRSB <Wt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]",
+          "LDRSB <Wt>, [<Xn|SP>, <Xm>{, LSL <amount>}]",
+          "LDRSB <Xt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]",
+          "LDRSB <Xt>, [<Xn|SP>, <Xm>{, LSL <amount>}]"
+        ],
+        "operation_asl": "constant bits(64) offset = ExtendReg(m, extend_type, shift, 64);\nbits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_LOAD, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\naddress = AddressAdd(address, offset, accdesc);\nconstant bits(8) data = Mem[address, 1, accdesc];\nX[t, regsize] = SignExtend(data, regsize);"
+      }
+    ],
+    "LDRSH": [
+      {
+        "c62_id": "C6.2.225",
+        "title": "LDRSH (immediate)",
+        "page": 2295,
+        "page_end": 2297,
+        "summary": "Load register signed halfword (immediate)\n\nThis instruction loads a halfword from memory, sign-extends it to 32 bits or 64 bits, and writes the result to a register. The address that is used for the load is calculated from a base register and an immediate offset. For information about addressing modes, see Load/Store addressing modes.\n\nIt has encodings from 3 classes: Post-index, Pre-index, and Unsigned offset",
+        "syntax": [
+          "LDRSH <Wt>, [<Xn|SP>], #<simm>",
+          "LDRSH <Xt>, [<Xn|SP>], #<simm>",
+          "LDRSH <Wt>, [<Xn|SP>, #<simm>]!",
+          "LDRSH <Xt>, [<Xn|SP>, #<simm>]!",
+          "LDRSH <Wt>, [<Xn|SP>{, #<pimm>}]",
+          "LDRSH <Xt>, [<Xn|SP>{, #<pimm>}]"
+        ],
+        "operation_asl": "bits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_LOAD, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\nif !postindex then\n    address = AddressAdd(address, offset, accdesc);\nconstant bits(16) data = Mem[address, 2, accdesc];\nX[t, regsize] = SignExtend(data, regsize);\nif wback then\n    if wb_unknown then\n        address = bits(64) UNKNOWN;\n    elsif postindex then\n        address = AddressAdd(address, offset, accdesc);\n    if n == 31 then\n        SP[64] = address;\n    else\n        X[n, 64] = address;"
+      },
+      {
+        "c62_id": "C6.2.226",
+        "title": "LDRSH (register)",
+        "page": 2298,
+        "page_end": 2299,
+        "summary": "Load register signed halfword (register)\n\nThis instruction calculates an address from a base register value and an offset register value, loads a halfword from memory, sign-extends it, and writes it to a register. For information about addressing modes, see Load/Store addressing modes.",
+        "syntax": [
+          "LDRSH <Wt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]",
+          "LDRSH <Xt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]"
+        ],
+        "operation_asl": "constant bits(64) offset = ExtendReg(m, extend_type, shift, 64);\nbits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_LOAD, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\naddress = AddressAdd(address, offset, accdesc);\nconstant bits(16) data = Mem[address, 2, accdesc];\nX[t, regsize] = SignExtend(data, regsize);"
+      }
+    ],
+    "LDRSW": [
+      {
+        "c62_id": "C6.2.227",
+        "title": "LDRSW (immediate)",
+        "page": 2300,
+        "page_end": 2302,
+        "summary": "Load register signed word (immediate)\n\nThis instruction loads a word from memory, sign-extends it to 64 bits, and writes the result to a register. The address that is used for the load is calculated from a base register and an immediate offset. For information about addressing modes, see Load/Store addressing modes.\n\nIt has encodings from 3 classes: Post-index, Pre-index, and Unsigned offset",
+        "syntax": [
+          "LDRSW <Xt>, [<Xn|SP>], #<simm>",
+          "LDRSW <Xt>, [<Xn|SP>, #<simm>]!",
+          "LDRSW <Xt>, [<Xn|SP>{, #<pimm>}]"
+        ],
+        "operation_asl": "bits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_LOAD, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\nif !postindex then\n    address = AddressAdd(address, offset, accdesc);\nconstant bits(32) data = Mem[address, 4, accdesc];\nX[t, 64] = SignExtend(data, 64);\nif wback then\n    if wb_unknown then\n        address = bits(64) UNKNOWN;\n    elsif postindex then\n        address = AddressAdd(address, offset, accdesc);\n    if n == 31 then\n        SP[64] = address;\n    else\n        X[n, 64] = address;"
+      },
+      {
+        "c62_id": "C6.2.229",
+        "title": "LDRSW (register)",
+        "page": 2304,
+        "page_end": 2305,
+        "summary": "Load register signed word (register)\n\nThis instruction calculates an address from a base register value and an offset register value, loads a word from memory, sign-extends it to form a 64-bit value, and writes it to a register. The offset register value can be shifted left by 0 or 2 bits. For information about addressing modes, see Load/Store addressing modes.",
+        "syntax": [
+          "LDRSW <Xt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]"
+        ],
+        "operation_asl": "constant bits(64) offset = ExtendReg(m, extend_type, shift, 64);\nbits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_LOAD, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\naddress = AddressAdd(address, offset, accdesc);\nconstant bits(32) data = Mem[address, 4, accdesc];\nX[t, 64] = SignExtend(data, 64);"
+      }
+    ],
+    "STR": [
+      {
+        "c62_id": "C6.2.414",
+        "title": "STR (immediate)",
+        "page": 2690,
+        "page_end": 2692,
+        "summary": "Store register (immediate)\n\nThis instruction stores a word or a doubleword from a register to memory. The address that is used for the store is calculated from a base register and an immediate offset. For information about addressing modes, see Load/Store addressing modes.\n\nIt has encodings from 3 classes: Post-index, Pre-index, and Unsigned offset",
+        "syntax": [
+          "STR <Wt>, [<Xn|SP>], #<simm>",
+          "STR <Xt>, [<Xn|SP>], #<simm>",
+          "STR <Wt>, [<Xn|SP>, #<simm>]!",
+          "STR <Xt>, [<Xn|SP>, #<simm>]!",
+          "STR <Wt>, [<Xn|SP>{, #<pimm>}]",
+          "STR <Xt>, [<Xn|SP>{, #<pimm>}]"
+        ],
+        "operation_asl": "bits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_STORE, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\nif !postindex then\n    address = AddressAdd(address, offset, accdesc);\nbits(datasize) data;\nif rt_unknown then\n    data = bits(datasize) UNKNOWN;\nelse\n    data = X[t, datasize];\nMem[address, datasize DIV 8, accdesc] = data;\nif wback then\n    if postindex then\n        address = AddressAdd(address, offset, accdesc);\n    if n == 31 then\n        SP[64] = address;\n    else\n        X[n, 64] = address;"
+      },
+      {
+        "c62_id": "C6.2.415",
+        "title": "STR (register)",
+        "page": 2693,
+        "page_end": 2695,
+        "summary": "Store register (register)\n\nThis instruction calculates an address from a base register value and an offset register value, and stores a 32-bit word or a 64-bit doubleword to the calculated address, from a register. For information about addressing modes, see Load/Store addressing modes.\n\nThe instruction uses an offset addressing mode, that calculates the address used for the memory access from a base register value and an offset register value. The offset can be optionally shifted and extended.",
+        "syntax": [
+          "STR <Wt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]",
+          "STR <Xt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]"
+        ],
+        "operation_asl": "constant bits(64) offset = ExtendReg(m, extend_type, shift, 64);\nbits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_STORE, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\naddress = AddressAdd(address, offset, accdesc);\nMem[address, datasize DIV 8, accdesc] = X[t, datasize];"
+      }
+    ],
+    "STRB": [
+      {
+        "c62_id": "C6.2.416",
+        "title": "STRB (immediate)",
+        "page": 2696,
+        "page_end": 2698,
+        "summary": "Store register byte (immediate)\n\nThis instruction stores the least significant byte of a 32-bit register to memory. The address that is used for the store is calculated from a base register and an immediate offset. For information about addressing modes, see Load/Store addressing modes.\n\nIt has encodings from 3 classes: Post-index, Pre-index, and Unsigned offset",
+        "syntax": [
+          "STRB <Wt>, [<Xn|SP>], #<simm>",
+          "STRB <Wt>, [<Xn|SP>, #<simm>]!",
+          "STRB <Wt>, [<Xn|SP>{, #<pimm>}]"
+        ],
+        "operation_asl": "bits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_STORE, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\nif !postindex then\n    address = AddressAdd(address, offset, accdesc);\nbits(8) data;\nif rt_unknown then\n    data = bits(8) UNKNOWN;\nelse\n    data = X[t, 8];\nMem[address, 1, accdesc] = data;\nif wback then\n    if postindex then\n        address = AddressAdd(address, offset, accdesc);\n    if n == 31 then\n        SP[64] = address;\n    else\n        X[n, 64] = address;"
+      },
+      {
+        "c62_id": "C6.2.417",
+        "title": "STRB (register)",
+        "page": 2699,
+        "page_end": 2700,
+        "summary": "Store register byte (register)\n\nThis instruction calculates an address from a base register value and an offset register value, and stores a byte from a 32-bit register to the calculated address. For information about addressing modes, see Load/Store addressing modes.\n\nThe instruction uses an offset addressing mode, that calculates the address used for the memory access from a base register value and an offset register value. The offset can be optionally shifted and extended.",
+        "syntax": [
+          "STRB <Wt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]",
+          "STRB <Wt>, [<Xn|SP>, <Xm>{, LSL <amount>}]"
+        ],
+        "operation_asl": "constant bits(64) offset = ExtendReg(m, extend_type, shift, 64);\nbits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_STORE, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\naddress = AddressAdd(address, offset, accdesc);\nMem[address, 1, accdesc] = X[t, 8];"
+      }
+    ],
+    "STRH": [
+      {
+        "c62_id": "C6.2.418",
+        "title": "STRH (immediate)",
+        "page": 2701,
+        "page_end": 2703,
+        "summary": "Store register halfword (immediate)\n\nThis instruction stores the least significant halfword of a 32-bit register to memory. The address that is used for the store is calculated from a base register and an immediate offset. For information about addressing modes, see Load/Store addressing modes.\n\nIt has encodings from 3 classes: Post-index, Pre-index, and Unsigned offset",
+        "syntax": [
+          "STRH <Wt>, [<Xn|SP>], #<simm>",
+          "STRH <Wt>, [<Xn|SP>, #<simm>]!",
+          "STRH <Wt>, [<Xn|SP>{, #<pimm>}]"
+        ],
+        "operation_asl": "bits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_STORE, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\nif !postindex then\n    address = AddressAdd(address, offset, accdesc);\nbits(16) data;\nif rt_unknown then\n    data = bits(16) UNKNOWN;\nelse\n    data = X[t, 16];\nMem[address, 2, accdesc] = data;\nif wback then\n    if postindex then\n        address = AddressAdd(address, offset, accdesc);\n    if n == 31 then\n        SP[64] = address;\n    else\n        X[n, 64] = address;"
+      },
+      {
+        "c62_id": "C6.2.419",
+        "title": "STRH (register)",
+        "page": 2704,
+        "page_end": 2705,
+        "summary": "Store register halfword (register)\n\nThis instruction calculates an address from a base register value and an offset register value, and stores a halfword from a 32-bit register to the calculated address. For information about addressing modes, see Load/Store addressing modes.\n\nThe instruction uses an offset addressing mode, that calculates the address used for the memory access from a base register value and an offset register value. The offset can be optionally shifted and extended.",
+        "syntax": [
+          "STRH <Wt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]"
+        ],
+        "operation_asl": "constant bits(64) offset = ExtendReg(m, extend_type, shift, 64);\nbits(64) address;\nconstant boolean privileged = PSTATE.EL != EL0;\nconstant AccessDescriptor accdesc = CreateAccDescGPR(MemOp_STORE, nontemporal, privileged,\n                                                     tagchecked, t);\nif n == 31 then\n    CheckSPAlignment();\n    address = SP[64];\nelse\n    address = X[n, 64];\naddress = AddressAdd(address, offset, accdesc);\nMem[address, 2, accdesc] = X[t, 16];"
+      }
+    ],
+    "SXTB": [
+      {
+        "c62_id": "C6.2.471",
+        "title": "SXTB",
+        "page": 2812,
+        "page_end": 2812,
+        "summary": "Signed extend byte\n\nThis instruction extracts an 8-bit value from a register, sign-extends it to the size of the register, and writes the result to the destination register.\n\nThis is an alias of SBFM. This means:\n\n• The encodings in this description are named to match the encodings of SBFM. • The description of SBFM gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "SXTB <Wd>, <Wn>  ==  SBFM <Wd>, <Wn>, #0, #7",
+          "SXTB <Xd>, <Wn>  ==  SBFM <Xd>, <Xn>, #0, #7"
+        ],
+        "operation_asl": "The description of SBFM gives the operational pseudocode for this instruction."
+      }
+    ],
+    "SXTH": [
+      {
+        "c62_id": "C6.2.472",
+        "title": "SXTH",
+        "page": 2813,
+        "page_end": 2813,
+        "summary": "Sign extend halfword\n\nThis instruction extracts a 16-bit value, sign-extends it to the size of the register, and writes the result to the destination register.\n\nThis is an alias of SBFM. This means:\n\n• The encodings in this description are named to match the encodings of SBFM. • The description of SBFM gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "SXTH <Wd>, <Wn>  ==  SBFM <Wd>, <Wn>, #0, #15",
+          "SXTH <Xd>, <Wn>  ==  SBFM <Xd>, <Xn>, #0, #15"
+        ],
+        "operation_asl": "The description of SBFM gives the operational pseudocode for this instruction."
+      }
+    ],
+    "SXTW": [
+      {
+        "c62_id": "C6.2.473",
+        "title": "SXTW",
+        "page": 2814,
+        "page_end": 2814,
+        "summary": "Sign extend word\n\nThis instruction sign-extends a word to the size of the register, and writes the result to the destination register.\n\nThis is an alias of SBFM. This means:\n\n• The encodings in this description are named to match the encodings of SBFM. • The description of SBFM gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "SXTW <Xd>, <Wn>  ==  SBFM <Xd>, <Xn>, #0, #31"
+        ],
+        "operation_asl": "The description of SBFM gives the operational pseudocode for this instruction."
+      }
+    ],
+    "UXTB": [
+      {
+        "c62_id": "C6.2.499",
+        "title": "UXTB",
+        "page": 2863,
+        "page_end": 2863,
+        "summary": "Unsigned extend byte\n\nThis instruction extracts an 8-bit value from a register, zero-extends it to the size of the register, and writes the result to the destination register.\n\nThis is an alias of UBFM. This means:\n\n• The encodings in this description are named to match the encodings of UBFM. • The description of UBFM gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "UXTB <Wd>, <Wn>  ==  UBFM <Wd>, <Wn>, #0, #7"
+        ],
+        "operation_asl": "The description of UBFM gives the operational pseudocode for this instruction."
+      }
+    ],
+    "UXTH": [
+      {
+        "c62_id": "C6.2.500",
+        "title": "UXTH",
+        "page": 2864,
+        "page_end": 2864,
+        "summary": "Unsigned extend halfword\n\nThis instruction extracts a 16-bit value from a register, zero-extends it to the size of the register, and writes the result to the destination register.\n\nThis is an alias of UBFM. This means:\n\n• The encodings in this description are named to match the encodings of UBFM. • The description of UBFM gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "UXTH <Wd>, <Wn>  ==  UBFM <Wd>, <Wn>, #0, #15"
+        ],
+        "operation_asl": "The description of UBFM gives the operational pseudocode for this instruction."
+      }
+    ],
+    "UXTW": [
+      {
+        "c62_id": "C6.2.281",
+        "title": "MOV (register)",
+        "page": 2413,
+        "page_end": 2414,
+        "summary": "Move register value\n\nThis instruction copies the value in a source register to the destination register.\n\nThis is an alias of ORR (shifted register). This means:\n\n• The encodings in this description are named to match the encodings of ORR (shifted register). • The description of ORR (shifted register) gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "MOV <Wd>, <Wm>  ==  ORR <Wd>, WZR, <Wm>",
+          "MOV <Xd>, <Xm>  ==  ORR <Xd>, XZR, <Xm>"
+        ],
+        "operation_asl": "The description of ORR (shifted register) gives the operational pseudocode for this instruction.",
+        "note": "The ARM ARM defines no UXTW entry: UXTW #0 is equivalent to a 32-bit register MOV (alias of ORR (shifted register)), whose 32-bit result is zero-extended to 64 bits; the MOV (register) entry is recorded here in its place."
+      }
+    ],
+    "RBIT": [
+      {
+        "c62_id": "C6.2.320",
+        "title": "RBIT",
+        "page": 2484,
+        "page_end": 2484,
+        "summary": "Reverse bits\n\nThis instruction reverses the bit order in a register.",
+        "syntax": [
+          "RBIT <Wd>, <Wn>",
+          "RBIT <Xd>, <Xn>"
+        ],
+        "operation_asl": "constant bits(datasize) operand = X[n, datasize];\nbits(datasize) result;\nfor i = 0 to datasize-1\n    result<(datasize-1)-i> = operand<i>;\nX[d, datasize] = result;"
+      }
+    ],
+    "REV": [
+      {
+        "c62_id": "C6.2.341",
+        "title": "REV",
+        "page": 2532,
+        "page_end": 2533,
+        "summary": "Reverse bytes\n\nThis instruction reverses the byte order in a register.\n\nThis instruction is used by the pseudo-instruction REV64.",
+        "syntax": [
+          "REV <Wd>, <Wn>",
+          "REV <Xd>, <Xn>"
+        ],
+        "operation_asl": "constant bits(datasize) operand = X[n, datasize];\nbits(datasize) result;\nconstant integer containers = datasize DIV container_size;\nfor c = 0 to containers-1\n    constant bits(container_size) container = Elem[operand, c, container_size];\n    Elem[result, c, container_size] = Reverse(container, 8);\nX[d, datasize] = result;"
+      }
+    ],
+    "REV16": [
+      {
+        "c62_id": "C6.2.342",
+        "title": "REV16",
+        "page": 2534,
+        "page_end": 2535,
+        "summary": "Reverse bytes in 16-bit halfwords\n\nThis instruction reverses the byte order in each 16-bit halfword of a register.",
+        "syntax": [
+          "REV16 <Wd>, <Wn>",
+          "REV16 <Xd>, <Xn>"
+        ],
+        "operation_asl": "constant bits(datasize) operand = X[n, datasize];\nbits(datasize) result;\nconstant integer containers = datasize DIV container_size;\nfor c = 0 to containers-1\n    constant bits(container_size) container = Elem[operand, c, container_size];\n    Elem[result, c, container_size] = Reverse(container, 8);\nX[d, datasize] = result;"
+      }
+    ],
+    "REV32": [
+      {
+        "c62_id": "C6.2.343",
+        "title": "REV32",
+        "page": 2536,
+        "page_end": 2536,
+        "summary": "Reverse bytes in 32-bit words\n\nThis instruction reverses the byte order in each 32-bit word of a register.",
+        "syntax": [
+          "REV32 <Xd>, <Xn>"
+        ],
+        "operation_asl": "constant bits(datasize) operand = X[n, datasize];\nbits(datasize) result;\nconstant integer containers = datasize DIV container_size;\nfor c = 0 to containers-1\n    constant bits(container_size) container = Elem[operand, c, container_size];\n    Elem[result, c, container_size] = Reverse(container, 8);\nX[d, datasize] = result;"
+      }
+    ],
+    "CLZ": [
+      {
+        "c62_id": "C6.2.91",
+        "title": "CLZ",
+        "page": 1940,
+        "page_end": 1940,
+        "summary": "Count leading zeros\n\nThis instruction counts the number of consecutive binary zero bits, starting from the most significant bit in the source register, and places the count in the destination register.",
+        "syntax": [
+          "CLZ <Wd>, <Wn>",
+          "CLZ <Xd>, <Xn>"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant integer result = CountLeadingZeroBits(operand1);\nX[d, datasize] = result<datasize-1:0>;"
+      }
+    ],
+    "CLS": [
+      {
+        "c62_id": "C6.2.90",
+        "title": "CLS",
+        "page": 1939,
+        "page_end": 1939,
+        "summary": "Count leading sign bits\n\nThis instruction counts the number of leading bits of the source register that have the same value as the most significant bit of the register, and writes the result to the destination register. This count does not include the most significant bit of the source register.",
+        "syntax": [
+          "CLS <Wd>, <Wn>",
+          "CLS <Xd>, <Xn>"
+        ],
+        "operation_asl": "constant bits(datasize) operand1 = X[n, datasize];\nconstant integer result = CountLeadingSignBits(operand1);\nX[d, datasize] = result<datasize-1:0>;"
+      }
+    ],
+    "CSEL": [
+      {
+        "c62_id": "C6.2.138",
+        "title": "CSEL",
+        "page": 2138,
+        "page_end": 2139,
+        "summary": "Conditional select\n\nThis instruction writes the value of the first source register to the destination register if the condition is TRUE. If the condition is FALSE, it writes the value of the second source register to the destination register.",
+        "syntax": [
+          "CSEL <Wd>, <Wn>, <Wm>, <cond>",
+          "CSEL <Xd>, <Xn>, <Xm>, <cond>"
+        ],
+        "operation_asl": "bits(datasize) result;\nif ConditionHolds(condition) then\n    result = X[n, datasize];\nelse\n    result = X[m, datasize];\nX[d, datasize] = result;"
+      }
+    ],
+    "CSINC": [
+      {
+        "c62_id": "C6.2.141",
+        "title": "CSINC",
+        "page": 2144,
+        "page_end": 2145,
+        "summary": "Conditional select increment\n\nThis instruction returns, in the destination register, the value of the first source register if the condition is TRUE, and otherwise returns the value of the second source register incremented by 1.\n\nThis instruction is used by the aliases CINC and CSET.",
+        "syntax": [
+          "CSINC <Wd>, <Wn>, <Wm>, <cond>",
+          "CSINC <Xd>, <Xn>, <Xm>, <cond>"
+        ],
+        "operation_asl": "bits(datasize) result;\nif ConditionHolds(condition) then\n    result = X[n, datasize];\nelse\n    result = X[m, datasize] + 1;\nX[d, datasize] = result;"
+      }
+    ],
+    "CSINV": [
+      {
+        "c62_id": "C6.2.142",
+        "title": "CSINV",
+        "page": 2146,
+        "page_end": 2147,
+        "summary": "Conditional select invert\n\nThis instruction returns, in the destination register, the value of the first source register if the condition is TRUE, and otherwise returns the bitwise inversion value of the second source register.\n\nThis instruction is used by the aliases CINV and CSETM.",
+        "syntax": [
+          "CSINV <Wd>, <Wn>, <Wm>, <cond>",
+          "CSINV <Xd>, <Xn>, <Xm>, <cond>"
+        ],
+        "operation_asl": "bits(datasize) result;\nif ConditionHolds(condition) then\n    result = X[n, datasize];\nelse\n    result = NOT(X[m, datasize]);\nX[d, datasize] = result;"
+      }
+    ],
+    "CSNEG": [
+      {
+        "c62_id": "C6.2.143",
+        "title": "CSNEG",
+        "page": 2148,
+        "page_end": 2149,
+        "summary": "Conditional select negation\n\nThis instruction returns, in the destination register, the value of the first source register if the condition is TRUE, and otherwise returns the negated value of the second source register.\n\nThis instruction is used by the alias CNEG.",
+        "syntax": [
+          "CSNEG <Wd>, <Wn>, <Wm>, <cond>",
+          "CSNEG <Xd>, <Xn>, <Xm>, <cond>"
+        ],
+        "operation_asl": "bits(datasize) result;\nif ConditionHolds(condition) then\n    result = X[n, datasize];\nelse\n    result = NOT(X[m, datasize]) + 1;\nX[d, datasize] = result;"
+      }
+    ],
+    "CSET": [
+      {
+        "c62_id": "C6.2.139",
+        "title": "CSET",
+        "page": 2140,
+        "page_end": 2141,
+        "summary": "Conditional set\n\nThis instruction sets the destination register to 1 if the condition is TRUE, and otherwise sets it to 0.\n\nThis is an alias of CSINC. This means:\n\n• The encodings in this description are named to match the encodings of CSINC. • The description of CSINC gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "CSET <Wd>, <invcond>  ==  CSINC <Wd>, WZR, WZR, <cond>",
+          "CSET <Xd>, <invcond>  ==  CSINC <Xd>, XZR, XZR, <cond>"
+        ],
+        "operation_asl": "The description of CSINC gives the operational pseudocode for this instruction."
+      }
+    ],
+    "CSETM": [
+      {
+        "c62_id": "C6.2.140",
+        "title": "CSETM",
+        "page": 2142,
+        "page_end": 2143,
+        "summary": "Conditional set mask\n\nThis instruction sets all bits of the destination register to 1 if the condition is TRUE, and otherwise sets all bits to 0.\n\nThis is an alias of CSINV. This means:\n\n• The encodings in this description are named to match the encodings of CSINV. • The description of CSINV gives the operational pseudocode, any CONSTRAINED UNPREDICTABLE behavior, and any operational information for this instruction.",
+        "syntax": [
+          "CSETM <Wd>, <invcond>  ==  CSINV <Wd>, WZR, WZR, <cond>",
+          "CSETM <Xd>, <invcond>  ==  CSINV <Xd>, XZR, XZR, <cond>"
+        ],
+        "operation_asl": "The description of CSINV gives the operational pseudocode for this instruction."
+      }
+    ]
+  },
+  "shared_pseudocode": {
+    "DecodeShift": "// DecodeShift()\n// =============\n// Decode shift encodings\nShiftType DecodeShift(bits(2) op)\n    case op of\n        when '00' return ShiftType_LSL;\n        when '01' return ShiftType_LSR;\n        when '10' return ShiftType_ASR;\n        when '11' return ShiftType_ROR;",
+    "ShiftReg": "// ShiftReg()\n// ==========\n// Perform shift of a register operand\nbits(N) ShiftReg(integer reg, ShiftType shiftype, integer amount, integer N)\n    bits(N) result = X[reg, N];\n    case shiftype of\n        when ShiftType_LSL result = LSL(result, amount);\n        when ShiftType_LSR result = LSR(result, amount);\n        when ShiftType_ASR result = ASR(result, amount);\n        when ShiftType_ROR result = ROR(result, amount);\n    return result;",
+    "DecodeBitMasks": "// DecodeBitMasks()\n// ================\n// Decode AArch64 bitfield and logical immediate masks which use a similar encoding structure\n(bits(M), bits(M)) DecodeBitMasks(bit immN, bits(6) imms, bits(6) immr,\n                                  boolean immediate, integer M)\n    bits(M) tmask, wmask;\n    bits(6) levels;\n    // Compute log2 of element size\n    // 2^len must be in range [2, M]\n    if immN:NOT(imms) == '000000x' then UNDEFINED;\n    constant integer len = HighestSetBitNZ(immN:NOT(imms));\n    assert 2 <= (2^len) && (2^len) <= M;\n    // Determine s, r and s - r parameters\n    levels = ZeroExtend(Ones(len), 6);\n    // For logical immediates an all-ones value of s is reserved\n    // since it would generate a useless all-ones result (many times)\n    if immediate && (imms AND levels) == levels then UNDEFINED;\n    constant integer s = UInt(imms AND levels);\n    constant integer r = UInt(immr AND levels);\n    constant integer diff = s - r; // 6-bit subtract with borrow\n    constant integer esize = 1 << len;\n    constant integer d = UInt(diff<len-1:0>);\n    welem = ZeroExtend(Ones(s + 1), esize);\n    telem = ZeroExtend(Ones(d + 1), esize);\n    wmask = Replicate(ROR(welem, r), M DIV esize);\n    tmask = Replicate(telem, M DIV esize);\n    return (wmask, tmask);",
+    "ExtendReg": "// ExtendReg()\n// ===========\n// Perform a register extension and shift\nbits(N) ExtendReg(integer reg, ExtendType exttype, integer shift, integer N)\n    assert shift >= 0 && shift <= 4;\n    constant bits(N) val = X[reg, N];\n    boolean unsigned;\n    ESize len;\n    case exttype of\n        when ExtendType_SXTB unsigned = FALSE; len = 8;\n        when ExtendType_SXTH unsigned = FALSE; len = 16;\n        when ExtendType_SXTW unsigned = FALSE; len = 32;\n        when ExtendType_SXTX unsigned = FALSE; len = 64;\n        when ExtendType_UXTB unsigned = TRUE; len = 8;\n        when ExtendType_UXTH unsigned = TRUE; len = 16;\n        when ExtendType_UXTW unsigned = TRUE; len = 32;\n        when ExtendType_UXTX unsigned = TRUE; len = 64;\n    // Sign or zero extend bottom LEN bits of register and shift left by SHIFT\n    constant nbits = Min(len, N);\n    constant bits(N) extval = Extend(val<nbits-1:0>, N, unsigned);\n    return LSL(extval, shift);",
+    "DecodeRegExtend": "// DecodeRegExtend()\n// =================\n// Decode a register extension option\nExtendType DecodeRegExtend(bits(3) op)\n    case op of\n        when '000' return ExtendType_UXTB;\n        when '001' return ExtendType_UXTH;\n        when '010' return ExtendType_UXTW;\n        when '011' return ExtendType_UXTX;\n        when '100' return ExtendType_SXTB;\n        when '101' return ExtendType_SXTH;\n        when '110' return ExtendType_SXTW;\n        when '111' return ExtendType_SXTX;",
+    "SignExtend": "// SignExtend()\n// ============\nbits(N) SignExtend(bits(M) x, integer N)\n    assert N >= M;\n    return Replicate(x<M-1>, N-M) : x;",
+    "ZeroExtend": "// ZeroExtend()\n// ============\nbits(N) ZeroExtend(bits(M) x, integer N)\n    assert N >= M;\n    return Zeros(N-M) : x;",
+    "Zeros": "// Zeros()\n// =======\nbits(N) Zeros(integer N)\n    return Replicate('0',N);",
+    "Ones": "// Ones()\n// ======\nbits(N) Ones(integer N)\n    return Replicate('1',N);",
+    "ConditionHolds": "// ConditionHolds()\n// ================\n// Return TRUE iff COND currently holds\nboolean ConditionHolds(bits(4) cond)\n    // Evaluate base condition.\n    boolean result;\n    case cond<3:1> of\n        when '000' result = (PSTATE.Z == '1'); // EQ or NE\n        when '001' result = (PSTATE.C == '1'); // CS or CC\n        when '010' result = (PSTATE.N == '1'); // MI or PL\n        when '011' result = (PSTATE.V == '1'); // VS or VC\n        when '100' result = (PSTATE.C == '1' && PSTATE.Z == '0'); // HI or LS\n        when '101' result = (PSTATE.N == PSTATE.V); // GE or LT\n        when '110' result = (PSTATE.N == PSTATE.V && PSTATE.Z == '0'); // GT or LE\n        when '111' result = TRUE; // AL\n    // Condition flag values in the set '111x' indicate always true\n    // Otherwise, invert condition if necessary.\n    if cond<0> == '1' && cond != '1111' then\n        result = !result;\n    return result;"
+  }
+}

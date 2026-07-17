@@ -10,11 +10,15 @@ CHECKCATS ?= \
 	x86-64-Intel \
 	x86-64-nolea \
 	arm-m4 \
+	armv8a \
+	armv8a-print-roundtrip \
 	risc-v \
 	x86-64-stack-zero-loop \
 	x86-64-stack-zero-unrolled \
 	arm-m4-stack-zero-loop \
 	arm-m4-stack-zero-unrolled \
+	armv8a-stack-zero-loop \
+	armv8a-stack-zero-unrolled \
 	risc-v-stack-zero-loop \
 	risc-v-stack-zero-unrolled \
 	CCT CCT-DOIT SCT
@@ -33,7 +37,7 @@ DISTDIR ?= jasmin-compiler
 OBELISK ?= obelisk
 
 # --------------------------------------------------------------------
-.PHONY: all CIL check check-ci
+.PHONY: all CIL check check-ci check-armv8a-semantics
 .PHONY: clean install uninstall dist
 
 all:
@@ -55,6 +59,12 @@ check-ci:
 check-ec:
 	$(MAKE) -C examples/gimli/proofs
 	$(MAKE) -C examples/extraction-unit-tests
+
+# Differential test of the ARMv8-A instruction semantics (the Coq model of
+# armv8a_instr_decl.v, evaluated through its OCaml extraction) against real
+# hardware execution. Requires an AArch64 (ARMv8-A) host.
+check-armv8a-semantics:
+	$(MAKE) -C tests/armv8a-hw-semantics check
 
 check-all: check
 	dune runtest -f
