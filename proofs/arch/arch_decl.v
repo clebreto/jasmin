@@ -61,6 +61,9 @@ Definition rtype {t T} `{ToString t T} := t.
      is [0, datasize) for every shift type, but there are two operand widths
      (W = 32, X = 64). See [check_shift_amount] (armv8a_decl.v), grounded in the
      C6.2 shifted-register decode.
+   - [CAimmC_armv8a_halfword_shift] carries a [wsize]: the MOVZ/MOVN/MOVK
+     halfword shift (hw field, C6.2.192-C6.2.194) is a multiple of 16 below
+     the operand width, so 32 and 48 only exist in the X form.
    The AArch64 immediate-encoding checkers take the operand width from the
    [wsize] of the immediate itself (the [CAimm] argument kind carries it), so
    they need no payload:
@@ -79,7 +82,7 @@ Inductive caimm_checker_s :=
   | CAimmC_arm_wencoding   of expected_wencoding
   | CAimmC_arm_0_8_16_24
   | CAimmC_armv8a_shift_amount of wsize
-  | CAimmC_armv8a_0_16_32_48
+  | CAimmC_armv8a_halfword_shift of wsize
   | CAimmC_armv8a_arith_imm
   | CAimmC_armv8a_bitmask_imm
   | CAimmC_armv8a_mov_imm

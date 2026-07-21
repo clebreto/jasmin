@@ -541,7 +541,7 @@ Let ak_rr_imm_shift :=
   [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAimm (CAimmC_armv8a_shift_amount osz) U8 ] ] ].
 
 Let ak_r_imm16_shift :=
-  [:: [:: [:: CAreg ]; [:: CAimm_sz U16 ]; [:: CAimm CAimmC_armv8a_0_16_32_48 U8 ] ] ].
+  [:: [:: [:: CAreg ]; [:: CAimm_sz U16 ]; [:: CAimm (CAimmC_armv8a_halfword_shift osz) U8 ] ] ].
 
 Let ak_rrr_imm_shift :=
   [:: [:: [:: CAreg ]; [:: CAreg ]; [:: CAreg ]; [:: CAimm (CAimmC_armv8a_shift_amount osz) U8 ] ] ].

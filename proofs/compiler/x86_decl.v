@@ -289,7 +289,7 @@ Definition x86_check_CAimm (checker : caimm_checker_s) ws (w : word ws) : bool :
   match checker with
   | CAimmC_none => true
   | CAimmC_arm_shift_amout _ | CAimmC_arm_wencoding _ | CAimmC_arm_0_8_16_24
-  | CAimmC_armv8a_shift_amount _ | CAimmC_armv8a_0_16_32_48
+  | CAimmC_armv8a_shift_amount _ | CAimmC_armv8a_halfword_shift _
   | CAimmC_armv8a_arith_imm | CAimmC_armv8a_bitmask_imm
   | CAimmC_armv8a_mov_imm
   | CAimmC_riscv_12bits_signed | CAimmC_riscv_5bits_unsigned =>

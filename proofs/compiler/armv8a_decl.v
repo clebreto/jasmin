@@ -254,7 +254,8 @@ Definition armv8a_check_CAimm (checker : caimm_checker_s) ws (w : word ws) : boo
   match checker with
   | CAimmC_none => true
   | CAimmC_armv8a_shift_amount ws' => check_shift_amount ws' (wunsigned w)
-  | CAimmC_armv8a_0_16_32_48 => let x := wunsigned w in x \in [:: 0; 16; 32; 48 ]%Z
+  | CAimmC_armv8a_halfword_shift ws' =>
+    let x := wunsigned w in (x \in [:: 0; 16; 32; 48 ]%Z) && (x <? wsize_bits ws')%Z
   | CAimmC_armv8a_arith_imm => is_arith_imm (wunsigned w)
   | CAimmC_armv8a_bitmask_imm => is_bitmask_imm ws (wunsigned w)
   | CAimmC_armv8a_mov_imm => is_mov_imm ws (wunsigned w)

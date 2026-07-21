@@ -472,7 +472,8 @@ Definition pp_caimm_checker_s checker :=
   | CAimmC_arm_0_8_16_24 => [:: pp_s "[0;8;16;24]"]
   | CAimmC_armv8a_shift_amount ws =>
     [:: pp_s "["; pp_z 0; pp_s ","; pp_z (wsize_bits ws - 1); pp_s "]" ]
-  | CAimmC_armv8a_0_16_32_48 => [:: pp_s "[0;16;32;48]"]
+  | CAimmC_armv8a_halfword_shift ws =>
+    [:: pp_s (if ws == U64 then "[0;16;32;48]"%string else "[0;16]"%string)]
   | CAimmC_armv8a_arith_imm => [:: pp_s "(arith imm12, optionally << 12)"]
   | CAimmC_armv8a_bitmask_imm => [:: pp_s "(logical bitmask immediate)"]
   | CAimmC_armv8a_mov_imm =>

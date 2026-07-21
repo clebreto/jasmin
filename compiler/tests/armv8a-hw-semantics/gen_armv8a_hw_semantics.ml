@@ -41,11 +41,6 @@
      Immediate *operands* that are part of the semantics itself (shift
      amounts, bitfield lsb/width, MOVZ/MOVN/MOVK immediates) ARE tested,
      over their encodable ranges only.
-   - MOVZ/MOVN/MOVK at U32 with shifts 32/48: the model's argument
-     checker [CAimmC_armv8a_0_16_32_48] accepts them, but the W form of
-     the hardware instructions cannot encode them, so they cannot be
-     executed (the assembler rejects them); shifts 0/16 are tested at
-     U32, 0/16/32/48 at U64.
    - Shifted-register variants with shift kinds the encoding does not
      have (e.g. ADD with ROR): the model accepts any [shift_kind] in
      [armv8a_options], but such combinations cannot be assembled, hence
@@ -287,9 +282,9 @@ let imm_shift_amounts sz =
 
 let movw_imms = [ 0x0; 0x1; 0x8000; 0xabcd; 0xffff ]
 
-(* Halfword shifts encodable by the hardware MOVZ/MOVN/MOVK: hw in {0,1}
-   for the W form, {0,1,2,3} for the X form. The model checker also
-   accepts 32/48 at U32 but those cannot be encoded (documented skip). *)
+(* Halfword shifts of MOVZ/MOVN/MOVK: multiples of 16 below the operand
+   width, as the model's [CAimmC_armv8a_halfword_shift] checker and the
+   hardware hw field both require. *)
 let movw_shifts sz =
   match sz with Wsize.U64 -> [ 0; 16; 32; 48 ] | _ -> [ 0; 16 ]
 
@@ -1098,10 +1093,6 @@ let () =
      register forms are tested (immediates that are part of the semantics \
      itself -- shift amounts, bitfield lsb/width, MOVZ/MOVN/MOVK -- are \
      tested)";
-  add_skip
-    "MOVZ/MOVN/MOVK at U32 with halfword shifts 32/48: accepted by the \
-     model's CAimmC_armv8a_0_16_32_48 checker but not encodable in the W \
-     form, hence not executable";
   add_skip
     "shifted-register variants with shift kinds A64 cannot encode (ROR on \
      the ADD/SUB/CMP/NEG class): accepted by armv8a_options but not \
