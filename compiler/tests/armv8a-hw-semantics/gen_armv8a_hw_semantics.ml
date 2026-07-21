@@ -41,13 +41,9 @@
      Immediate *operands* that are part of the semantics itself (shift
      amounts, bitfield lsb/width, MOVZ/MOVN/MOVK immediates) ARE tested,
      over their encodable ranges only.
-   - Shifted-register variants with shift kinds the encoding does not
-     have (e.g. ADD with ROR): the model accepts any [shift_kind] in
-     [armv8a_options], but such combinations cannot be assembled, hence
-     cannot be compared against hardware.
    - Condition-code decoding (NE, LT, ...) happens in [arm_eval_cond]
      (armv8a_decl / arm_common), outside the instruction descriptions
-     under test; the CSEL/CSET families are tested with a fixed condition
+     under test; the CSEL family is tested with a fixed condition
      (NE) driven both ways through the Z flag, which exercises their
      [id_semi] on both boolean values. *)
 
@@ -1093,10 +1089,6 @@ let () =
      register forms are tested (immediates that are part of the semantics \
      itself -- shift amounts, bitfield lsb/width, MOVZ/MOVN/MOVK -- are \
      tested)";
-  add_skip
-    "shifted-register variants with shift kinds A64 cannot encode (ROR on \
-     the ADD/SUB/CMP/NEG class): accepted by armv8a_options but not \
-     assemblable";
   add_skip
     "condition codes other than NE for CSEL: condition decoding happens in \
      arm_eval_cond outside armv8a_instr_decl.v; its id_semi boolean is \
