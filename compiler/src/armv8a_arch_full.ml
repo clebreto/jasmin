@@ -42,64 +42,7 @@ module Armv8a (Lowering_params : Armv8a_input) = struct
     | Armv8a_instr_decl.ARMv8A_op ((Armv8a_instr_decl.SDIV | Armv8a_instr_decl.UDIV), _) -> false
     | _ -> true
 
-  (* Classification per the A64 DIT instruction list (Arm ARM DDI0487M.a,
-     "Data Independent Timing"): the base data-processing instructions and
-     the general-purpose loads and stores are DIT; the divisions are not.
-     ADR is conservatively excluded, as on arm-m4. *)
-  let is_doit_asm_op (o : asm_op) =
-    let Armv8a_instr_decl.ARMv8A_op (mn, _) = o in
-    match mn with
-    | Armv8a_instr_decl.ADD -> true
-    | Armv8a_instr_decl.ADDS -> true
-    | Armv8a_instr_decl.ADC -> true
-    | Armv8a_instr_decl.ADCS -> true
-    | Armv8a_instr_decl.SUB -> true
-    | Armv8a_instr_decl.SUBS -> true
-    | Armv8a_instr_decl.NEG -> true
-    | Armv8a_instr_decl.MUL -> true
-    | Armv8a_instr_decl.MADD -> true
-    | Armv8a_instr_decl.MSUB -> true
-    | Armv8a_instr_decl.SDIV -> false (* Not DIT *)
-    | Armv8a_instr_decl.UDIV -> false (* Not DIT *)
-    | Armv8a_instr_decl.AND -> true
-    | Armv8a_instr_decl.ORR -> true
-    | Armv8a_instr_decl.EOR -> true
-    | Armv8a_instr_decl.MVN -> true
-    | Armv8a_instr_decl.ASR -> true
-    | Armv8a_instr_decl.LSL -> true
-    | Armv8a_instr_decl.LSR -> true
-    | Armv8a_instr_decl.ROR -> true
-    | Armv8a_instr_decl.MOV -> true
-    | Armv8a_instr_decl.MOVN -> true
-    | Armv8a_instr_decl.MOVZ -> true
-    | Armv8a_instr_decl.MOVK -> true
-    | Armv8a_instr_decl.ADR -> false (* Not DIT *)
-    | Armv8a_instr_decl.SXTB -> true
-    | Armv8a_instr_decl.SXTH -> true
-    | Armv8a_instr_decl.SXTW -> true
-    | Armv8a_instr_decl.UXTB -> true
-    | Armv8a_instr_decl.UXTH -> true
-    | Armv8a_instr_decl.UXTW -> true
-    | Armv8a_instr_decl.CMP -> true
-    | Armv8a_instr_decl.TST -> true
-    | Armv8a_instr_decl.CSEL -> true
-    | Armv8a_instr_decl.LDR -> true
-    | Armv8a_instr_decl.LDRB -> true
-    | Armv8a_instr_decl.LDRH -> true
-    | Armv8a_instr_decl.LDRSB -> true
-    | Armv8a_instr_decl.LDRSH -> true
-    | Armv8a_instr_decl.LDRSW -> true
-    | Armv8a_instr_decl.STR -> true
-    | Armv8a_instr_decl.STRB -> true
-    | Armv8a_instr_decl.STRH -> true
-
   let is_ct_asm_extra (_o : extra_op) = true
-
-  let is_doit_asm_extra (o : extra_op) =
-    match o with
-    | Armv8a_extra.Oarmv8a_swap _ -> true
-    | Armv8a_extra.Oarmv8a_add_large_imm -> true
-    | Armv8a_extra.Oarmv8a_smart_li _ -> true
 
   let not_saved_stack = []
 

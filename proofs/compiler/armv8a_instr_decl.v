@@ -442,6 +442,7 @@ Definition mk_shifted
     id_check_dest := id_check_dest idt;
     id_str_jas := id_str_jas idt;
     id_safe := id_safe idt;
+    id_doit := id_doit idt;
     id_pp_asm := id_pp_asm idt;
     (* The descriptor itself rejects a shift kind that the instruction
        does not admit (ROR on the arithmetic class). *)
@@ -586,6 +587,7 @@ Definition mk_arith_instr mn (ick : option armv8a_caimm_cond)
       id_check_dest := refl_equal;
       id_str_jas := armv8a_mn_str mn;
       id_safe := [::];
+      id_doit := doit;
       id_pp_asm := pp_armv8a_op mn opts;
       id_valid := osz_valid;
       id_safe_wf := refl_equal;
@@ -620,6 +622,7 @@ Definition mk_ariths_instr mn (ick : option armv8a_caimm_cond)
       id_check_dest := refl_equal;
       id_str_jas := armv8a_mn_str mn;
       id_safe := [::];
+      id_doit := doit;
       id_pp_asm := pp_armv8a_op mn opts;
       id_valid := osz_valid;
       id_safe_wf := refl_equal;
@@ -740,6 +743,7 @@ Definition mk_carry_instr mn (semi : word osz -> word osz -> bool -> ty_w osz)
     id_check_dest := refl_equal;
     id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
+    id_doit := doit;
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
     id_safe_wf := refl_equal;
@@ -763,6 +767,7 @@ Definition mk_carrys_instr mn (semi : word osz -> word osz -> bool -> ty_nzcv_w 
     id_check_dest := refl_equal;
     id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
+    id_doit := doit;
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
     id_safe_wf := refl_equal;
@@ -848,6 +853,7 @@ Definition armv8a_NEG_instr : instr_desc_t :=
       id_check_dest := refl_equal;
       id_str_jas := armv8a_mn_str mn;
       id_safe := [::];
+      id_doit := doit;
       id_pp_asm := pp_armv8a_op mn opts;
       id_valid := osz_valid;
       id_safe_wf := refl_equal;
@@ -864,7 +870,8 @@ Definition armv8a_NEG_instr : instr_desc_t :=
   else x.
 
 (* A three-register instruction without flags (MUL, SDIV, UDIV, ...). *)
-Definition mk_rrr_instr mn (semi : word osz -> word osz -> ty_w osz)
+Definition mk_rrr_instr mn (doit_v : doit_t)
+  (semi : word osz -> word osz -> ty_w osz)
   : instr_desc_t :=
   let tin := [:: lword osz; lword osz ] in
   {|
@@ -880,6 +887,7 @@ Definition mk_rrr_instr mn (semi : word osz -> word osz -> ty_w osz)
     id_check_dest := refl_equal;
     id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
+    id_doit := doit_v;
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
     id_safe_wf := refl_equal;
@@ -902,7 +910,7 @@ Definition mk_rrr_instr mn (semi : word osz -> word osz -> ty_w osz)
 Definition armv8a_MUL_semi {ws : wsize} (wn wm : word ws) : ty_w ws :=
   (wn * wm)%w.
 
-Definition armv8a_MUL_instr : instr_desc_t := mk_rrr_instr MUL armv8a_MUL_semi.
+Definition armv8a_MUL_instr : instr_desc_t := mk_rrr_instr MUL doit armv8a_MUL_semi.
 (* [C6.2.356 SDIV] ARM DDI 0487 M.a, p. 2558
    Signed divide  This instruction divides the first signed source register
    value by the second signed source register value, and writes the result to
@@ -926,7 +934,8 @@ Definition armv8a_MUL_instr : instr_desc_t := mk_rrr_instr MUL armv8a_MUL_semi.
 Definition armv8a_SDIV_semi {ws : wsize} (wn wm : word ws) : ty_w ws :=
   wdivi wn wm.
 
-Definition armv8a_SDIV_instr : instr_desc_t := mk_rrr_instr SDIV armv8a_SDIV_semi.
+Definition armv8a_SDIV_instr : instr_desc_t :=
+  mk_rrr_instr SDIV not_doit (* Not DIT *) armv8a_SDIV_semi.
 (* [C6.2.489 UDIV] ARM DDI 0487 M.a, p. 2846
    Unsigned divide  This instruction divides the first unsigned source register
    value by the second unsigned source register value, and writes the result to
@@ -948,7 +957,8 @@ Definition armv8a_SDIV_instr : instr_desc_t := mk_rrr_instr SDIV armv8a_SDIV_sem
 Definition armv8a_UDIV_semi {ws : wsize} (wn wm : word ws) : ty_w ws :=
   wdiv wn wm.
 
-Definition armv8a_UDIV_instr : instr_desc_t := mk_rrr_instr UDIV armv8a_UDIV_semi.
+Definition armv8a_UDIV_instr : instr_desc_t :=
+  mk_rrr_instr UDIV not_doit (* Not DIT *) armv8a_UDIV_semi.
 
 (* Multiply-add and multiply-subtract. *)
 Definition mk_madd_instr mn (semi : word osz -> word osz -> word osz -> ty_w osz)
@@ -967,6 +977,7 @@ Definition mk_madd_instr mn (semi : word osz -> word osz -> word osz -> ty_w osz
     id_check_dest := refl_equal;
     id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
+    id_doit := doit;
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
     id_safe_wf := refl_equal;
@@ -1092,6 +1103,7 @@ Definition armv8a_MVN_instr : instr_desc_t :=
       id_check_dest := refl_equal;
       id_str_jas := armv8a_mn_str mn;
       id_safe := [::];
+      id_doit := doit;
       id_pp_asm := pp_armv8a_op mn opts;
       id_valid := osz_valid;
       id_safe_wf := refl_equal;
@@ -1140,6 +1152,7 @@ Definition mk_shift_instr mn (op : forall sz, word sz -> Z -> word sz)
     id_check_dest := refl_equal;
     id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
+    id_doit := doit;
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
     id_safe_wf := refl_equal;
@@ -1236,6 +1249,7 @@ Definition armv8a_MOV_instr : instr_desc_t :=
     id_check_dest := refl_equal;
     id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
+    id_doit := doit;
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
     id_safe_wf := refl_equal;
@@ -1259,6 +1273,7 @@ Definition mk_movw_instr mn (semi : word U16 -> word U8 -> ty_w osz)
     id_check_dest := refl_equal;
     id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
+    id_doit := doit;
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
     id_safe_wf := refl_equal;
@@ -1329,6 +1344,7 @@ Definition armv8a_MOVK_instr : instr_desc_t :=
     id_check_dest := refl_equal;
     id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
+    id_doit := doit;
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
     id_safe_wf := refl_equal;
@@ -1364,6 +1380,7 @@ Definition mk_extend_instr mn (in_ws : wsize) (sign : bool) (valid : bool)
     id_check_dest := refl_equal;
     id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
+    id_doit := doit;
     (* [SXTB <Xd>, <Wn>] / [UXTB <Wd>, <Wn>]: the source is always a W
        register, and so is the destination of the zero-extensions. *)
     id_pp_asm := pp_armv8a_op_szs mn [:: (if sign then osz else U32); U32 ];
@@ -1401,6 +1418,7 @@ Definition armv8a_ADR_instr : instr_desc_t :=
     id_check_dest := refl_equal;
     id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
+    id_doit := not_doit;
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz == U64;
     id_safe_wf := refl_equal;
@@ -1509,6 +1527,7 @@ Definition mk_cmp_instr mn (ick : option armv8a_caimm_cond)
       id_check_dest := refl_equal;
       id_str_jas := armv8a_mn_str mn;
       id_safe := [::];
+      id_doit := doit;
       id_pp_asm := pp_armv8a_op mn opts;
       id_valid := osz_valid;
       id_safe_wf := refl_equal;
@@ -1587,6 +1606,7 @@ Definition mk_csel_instr mn (semi : word osz -> word osz -> bool -> ty_w osz)
     id_check_dest := refl_equal;
     id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
+    id_doit := doit;
     id_pp_asm := pp_armv8a_op mn opts;
     id_valid := osz_valid;
     id_safe_wf := refl_equal;
@@ -1665,6 +1685,7 @@ Definition armv8a_load_instr mn : instr_desc_t :=
     id_check_dest := refl_equal;
     id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
+    id_doit := doit;
     (* The transferred register of the zero-extending narrow loads is
        always a W register ([LDRB <Wt>, ...]); the sign-extending loads
        name it at the operand size ([LDRSB <Wt>|<Xt>, ...]). *)
@@ -1840,6 +1861,7 @@ Definition armv8a_store_instr mn : instr_desc_t :=
     id_check_dest := refl_equal;
     id_str_jas := armv8a_mn_str mn;
     id_safe := [::];
+    id_doit := doit;
     (* The transferred register of the narrow stores is always a W
        register ([STRB <Wt>, ...]). *)
     id_pp_asm :=
