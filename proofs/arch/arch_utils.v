@@ -51,7 +51,7 @@ Context
 Definition ak_reg_reg : i_args_kinds :=
     [:: [:: [:: CAreg ]; [:: CAreg ] ] ].
 
-Definition CAimm_sz sz := CAimm CAimmC_none sz.
+Definition CAimm_sz sz := CAimm None sz.
 
 Definition ak_reg_imm : i_args_kinds :=
     [:: [:: [:: CAreg ]; [:: CAimm_sz reg_size ] ] ].
@@ -283,6 +283,7 @@ Notation idt_dropn semi_dropn semi_errtyp semi_safe :=
        id_check_dest := all2_beheadn (id_check_dest idt);
        id_str_jas := id_str_jas idt;
        id_safe := id_safe idt;
+       id_doit := id_doit idt;
        id_pp_asm := id_pp_asm idt;
        id_safe_wf := id_safe_wf idt;
        id_semi_errty := fun (h : id_valid idt) =>

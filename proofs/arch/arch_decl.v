@@ -43,53 +43,14 @@ Existing Instance _finC.
 
 Definition rtype {t T} `{ToString t T} := t.
 
-(* This type and the field check_CAimm is not very elegant, but
-   it is the only solution I have to keep a decidable equality over the type arg_kind.
-   If new architecture need new checker for immediate then we should add an entry here.
-   But it definition can be done in the architecture itself
-*)
-
-(* Each constructor is an architecture-specific validity predicate for an
-   immediate operand and carries the datum its rule depends on. In particular
-   the two shift-amount checkers are keyed on *different* data, because the two
-   ISAs bound the shift amount along different axes:
-   - [CAimmC_arm_shift_amout] carries a [shift_kind]: on AArch32 (A32/T32) the
-     legal amount range depends on the shift type (LSL 0..31, LSR/ASR 1..32,
-     ROR 1..31), the register width being fixed at 32 bits. See
-     [shift_amount_bounds] (shift_kind.v), grounded in DecodeImmShift.
-   - [CAimmC_armv8a_shift_amount] carries a [wsize]: on AArch64 the amount range
-     is [0, datasize) for every shift type, but there are two operand widths
-     (W = 32, X = 64). See [check_shift_amount] (armv8a_decl.v), grounded in the
-     C6.2 shifted-register decode.
-   - [CAimmC_armv8a_halfword_shift] carries a [wsize]: the MOVZ/MOVN/MOVK
-     halfword shift (hw field, C6.2.192-C6.2.194) is a multiple of 16 below
-     the operand width, so 32 and 48 only exist in the X form.
-   The AArch64 immediate-encoding checkers take the operand width from the
-   [wsize] of the immediate itself (the [CAimm] argument kind carries it), so
-   they need no payload:
-   - [CAimmC_armv8a_arith_imm]: 12-bit unsigned immediate, optionally shifted
-     left by 12 (ADD/SUB/CMP/CMN immediate class, C6.2.5).
-   - [CAimmC_armv8a_bitmask_imm]: logical (bitmask) immediates — a run of ones
-     rotated within an element of 2/4/8/16/32/64 bits, replicated across the
-     operand (AND/ORR/EOR/ANDS/TST immediate class, DecodeBitMasks, J1.1).
-   - [CAimmC_armv8a_mov_imm]: immediates accepted by the MOV alias — a wide
-     immediate (MOVZ), an inverted wide immediate (MOVN) or a bitmask
-     immediate (ORR), C6.2.192–C6.2.194. *)
-#[only(eqbOK)] derive
-Inductive caimm_checker_s :=
-  | CAimmC_none
-  | CAimmC_arm_shift_amout of shift_kind
-  | CAimmC_arm_wencoding   of expected_wencoding
-  | CAimmC_arm_0_8_16_24
-  | CAimmC_armv8a_shift_amount of wsize
-  | CAimmC_armv8a_halfword_shift of wsize
-  | CAimmC_armv8a_arith_imm
-  | CAimmC_armv8a_bitmask_imm
-  | CAimmC_armv8a_mov_imm
-  | CAimmC_riscv_12bits_signed
-  | CAimmC_riscv_5bits_unsigned.
-
-HB.instance Definition _ := hasDecEq.Build caimm_checker_s caimm_checker_s_eqb_OK.
+(* Immediate-argument conditions.
+   Each architecture declares its own type of validity conditions for
+   immediate operands: the [caimm_cond] field of [arch_decl] below, together
+   with [check_CAimm] to decide whether an immediate word satisfies a
+   condition and [caimm_cond_pp] to render the condition in assembly
+   generation error messages. Architectures with no special immediate
+   conditions (e.g. x86) use [empty]. This keeps each architecture's
+   conditions in its own files. *)
 
 (* -------------------------------------------------------------------- *)
 (* Basic architecture declaration.
@@ -106,11 +67,14 @@ Class arch_decl (reg regx xreg rflag cond : Type) :=
   ; reg_size_neq_xreg_size : reg_size != xreg_size
   ; ad_rsp : reg
   ; ad_fcp : FlagCombinationParams
-  ; check_CAimm : caimm_checker_s -> forall ws, word ws -> bool
+  ; caimm_cond : Type  (* architecture-specific immediate conditions *)
+  ; caimm_cond_eqC : eqTypeC caimm_cond
+  ; caimm_cond_pp : caimm_cond -> string  (* for error messages *)
+  ; check_CAimm : caimm_cond -> forall ws, word ws -> bool
   }.
 
 #[global]
-Existing Instances cond_eqC toS_r toS_rx toS_x toS_f ad_fcp.
+Existing Instances cond_eqC toS_r toS_rx toS_x toS_f ad_fcp caimm_cond_eqC.
 
 #[export]
 Instance arch_pd `{arch_decl} : PointerData := { Uptr := reg_size }.
@@ -336,14 +300,36 @@ Definition check_oreg or ai :=
 (* Argument kinds.
  * Types for arguments of assembly instructions.
  *)
-#[only(eqbOK)] derive
 Variant arg_kind :=
 | CAcond
 | CAreg
 | CAregx
 | CAxmm
 | CAmem of bool (* true if Global is allowed *)
-| CAimm of caimm_checker_s & wsize.
+| CAimm of option caimm_cond & wsize.
+
+(* [caimm_cond] is an abstract type equipped with an [eqTypeC], so the
+   decidable equality is written by hand instead of derived. *)
+Definition arg_kind_eqb (a1 a2 : arg_kind) : bool :=
+  match a1, a2 with
+  | CAcond, CAcond
+  | CAreg, CAreg
+  | CAregx, CAregx
+  | CAxmm, CAxmm => true
+  | CAmem b1, CAmem b2 => b1 == b2
+  | CAimm c1 ws1, CAimm c2 ws2 =>
+      ((c1 : option ceqT_eqType) == c2) && (ws1 == ws2)
+  | _, _ => false
+  end.
+
+Lemma arg_kind_eqb_OK : forall a1 a2, reflect (a1 = a2) (arg_kind_eqb a1 a2).
+Proof.
+  move=> a1 a2; apply: (iffP idP).
+  - case: a1 a2 => [||||b1|c1 ws1] [||||b2|c2 ws2] //=.
+    + by move=> /eqP ->.
+    by move=> /andP [/eqP -> /eqP ->].
+  move=> <-; case: a1 => //= *; by rewrite !eqxx.
+Qed.
 
 HB.instance Definition _ := hasDecEq.Build arg_kind arg_kind_eqb_OK.
 
@@ -373,7 +359,8 @@ Definition i_args_kinds := seq args_kinds.
 Definition check_arg_kind (a:asm_arg) (cond: arg_kind) :=
   match a, cond with
   | Condt _, CAcond => true
-  | Imm sz z, CAimm checker sz' => (sz == sz') && check_CAimm checker z
+  | Imm sz z, CAimm checker sz' =>
+      (sz == sz') && oapp (fun c => check_CAimm c z) true checker
   | Reg _ , CAreg => true
   | Regx _, CAregx => true
   | Addr _, CAmem _ => true
@@ -414,6 +401,7 @@ Record pp_asm_op := mk_pp_asm_op {
 
 (* -------------------------------------------------------------------- *)
 (* Instruction descriptions. *)
+
 Record instr_desc_t := {
   (* Info for architecture semantics. *)
   (* This field allows to ensure the validity of the instruction,
@@ -440,6 +428,9 @@ Record instr_desc_t := {
   id_str_jas    : unit -> string;
   id_check_dest : all2 check_arg_dest id_out id_tout;
   id_safe       : seq safe_cond;
+  (* Whether the instruction has data operand independent timing, i.e. belongs
+     to the DOIT (Intel) / DIT (ARM) subsets of instructions. *)
+  id_doit       : doit_t;
   id_pp_asm     : asm_args -> pp_asm_op;
   (* Extra properties ensuring that previous information are consistent *)
   id_safe_wf    : all (fun sc => values.sc_needed_args sc <= size id_tin) id_safe;
@@ -448,6 +439,9 @@ Record instr_desc_t := {
     (* safety condition are sufficient to ensure that no error are raised *)
   id_semi_safe  : id_valid -> interp_safe_cond_lty id_tin id_safe id_semi;
 }.
+
+Definition doit := DOIT.
+Definition not_doit := NOT_DOIT.
 
 (* -------------------------------------------------------------------- *)
 (* Architecture operand declaration. *)
@@ -462,7 +456,12 @@ Existing Instance _eqT.
 
 Definition asm_op_t' {asm_op} {asm_op_d : asm_op_decl asm_op} := asm_op.
 (* We extend [asm_op] in order to deal with msb flags *)
-Definition asm_op_msb_t {asm_op} {asm_op_d : asm_op_decl asm_op} := (option wsize * asm_op)%type.
+
+Definition asm_op_msb_t_gen (asm_op : Type) :=
+  (option wsize * asm_op)%type.
+
+Definition asm_op_msb_t {asm_op} {asm_op_d : asm_op_decl asm_op} :=
+  asm_op_msb_t_gen asm_op.
 
 Context `{asm_op_d : asm_op_decl}.
 
@@ -571,16 +570,26 @@ Proof.
   move=> h v; apply/hrec/h.
 Qed.
 
+Definition can_zeroextend (d:instr_desc_t) :=
+  (d.(id_msb_flag) == MSB_CLEAR).
+
+Lemma and_proj1 (a b : bool) : a && b -> a.
+Proof. by move=> /andP []. Qed.
+
 Definition instr_desc (o:asm_op_msb_t) : instr_desc_t :=
   let (ws, o) := o in
   let d := instr_desc_op o in
   if ws is Some ws then
-    if d.(id_msb_flag) == MSB_CLEAR then
-    {| id_valid      := d.(id_valid);
+    let valid := can_zeroextend d in
+    let tout := map (extend_size ws) d.(id_tout) in
+    {| id_valid      := d.(id_valid) &&
+          (* We reject the operator if the msb flag is not msb_clear
+             or if the cast (the extend_size) has no effect on the output type *)
+          (valid && (tout != d.(id_tout)));
        id_msb_flag   := d.(id_msb_flag);
        id_tin        := d.(id_tin);
        id_in         := d.(id_in);
-       id_tout       := map (extend_size ws) d.(id_tout);
+       id_tout       := tout;
        id_out        := d.(id_out);
        id_semi       := extend_sem ws d.(id_semi);
        id_args_kinds := exclude_mem d.(id_args_kinds) d.(id_out) ;
@@ -589,12 +598,12 @@ Definition instr_desc (o:asm_op_msb_t) : instr_desc_t :=
        id_str_jas    := d.(id_str_jas);
        id_check_dest := instr_desc_aux2 ws d.(id_check_dest);
        id_safe       := d.(id_safe);
+       id_doit       := d.(id_doit);
        id_pp_asm     := d.(id_pp_asm);
        id_safe_wf    := d.(id_safe_wf);
-       id_semi_errty := fun h => extend_sem_errty ws (d.(id_semi_errty) h);
-       id_semi_safe  := fun h => extend_sem_safe ws (d.(id_semi_safe) h);
- |}
-    else d (* FIXME do the case for MSB_KEEP *)
+       id_semi_errty := fun h => extend_sem_errty ws (d.(id_semi_errty) (and_proj1 h));
+       id_semi_safe  := fun h => extend_sem_safe ws (d.(id_semi_safe) (and_proj1 h));
+    |}
   else
     d.
 

@@ -47,9 +47,7 @@ module type Core_arch = sig
   val known_implicits : (Name.t * string) list
 
   val is_ct_asm_op : asm_op -> bool
-  val is_doit_asm_op : asm_op -> bool
   val is_ct_asm_extra : extra_op -> bool
-  val is_doit_asm_extra : extra_op -> bool
 
   val internal_call_conv : (reg, regx, xreg, rflag, cond) internal_calling_convention
 end
@@ -57,6 +55,7 @@ end
 module type Arch = sig
   include Core_arch
 
+  type extended_op_gen = (asm_op, extra_op) Arch_extra.extended_op_gen
   type extended_op = (reg, regx, xreg, rflag, cond, asm_op, extra_op) Arch_extra.extended_op
 
   val reg_size : Wsize.wsize
@@ -64,8 +63,8 @@ module type Arch = sig
   val msf_size : Wsize.wsize
   val rip : var
 
-  val asmOp      : extended_op Sopn.asmOp
-  val asmOp_sopn : extended_op Sopn.sopn Sopn.asmOp
+  val asmOp      : extended_op_gen Sopn.asmOp
+  val asmOp_sopn : extended_op_gen Sopn.sopn Sopn.asmOp
 
   val reg_vars  : var list
   val regx_vars : var list
@@ -86,7 +85,7 @@ module type Arch = sig
 
   val callstyle : var callstyle
 
-  val arch_info : (reg, regx, xreg, rflag, cond, asm_op, extra_op) Pretyping.arch_info
+  val arch_info : extended_op arch_info
 
   val is_ct_sopn : ?doit:bool -> extended_op -> bool
 

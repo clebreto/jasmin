@@ -276,15 +276,20 @@ Existing Instances _asm _atoI _extra.
 
 Definition extra_op_t {reg regx xreg rflag cond asm_op extra_op} {asm_e : asm_extra reg regx xreg rflag cond asm_op extra_op} := extra_op.
 
+Variant extended_op_gen (asm_op extra_op : Type) :=
+  | BaseOp of asm_op_msb_t_gen asm_op
+  | ExtOp of extra_op.
+
+Arguments BaseOp [asm_op]%_type_scope {extra_op}%_type_scope _.
+Arguments ExtOp {asm_op}%_type_scope [extra_op]%_type_scope _.
+
 Section AsmOpI.
 
 Context `{asm_e : asm_extra}.
 
-Variant extended_op :=
-  | BaseOp of asm_op_msb_t
-  | ExtOp of extra_op_t.
+Definition extended_op := extended_op_gen asm_op_t' extra_op_t.
 
-Definition extended_op_beq o1 o2 :=
+Definition extended_op_beq (o1 o2 : extended_op) :=
   match o1, o2 with
   | BaseOp o1, BaseOp o2 => o1 == o2 :> _ * ceqT_eqType
   | ExtOp o1, ExtOp o2 => o1 == o2 ::>
@@ -390,6 +395,7 @@ Definition get_instr_desc (o: extended_op) : instruction_desc :=
     ; semu     := @vuincl_app_sopn_v _ _ _ (is_not_carr_ltype _)
     ; i_safe   := id.(id_safe)
     ; i_valid  := id.(id_valid)
+    ; i_doit   := id.(id_doit)
     ; i_safe_wf := semi_to_atype_safe_wf id.(id_safe_wf)
     ; i_semi_errty := fun h => semi_to_atype_errty (id.(id_semi_errty) h)
     ; i_semi_safe := fun h => semi_to_atype_safe (id.(id_semi_safe) h)
@@ -398,10 +404,10 @@ Definition get_instr_desc (o: extended_op) : instruction_desc :=
  end.
 
 Definition sopn_prim_string_base (o : seq (string * prim_constructor asm_op)) :=
-  let to_ex o := BaseOp (None, o) in
+  let to_ex o : extended_op := BaseOp (None, o) in
   map (fun '(s, p) => (s, map_prim_constructor to_ex p)) o.
 Definition sopn_prim_string_extra (o : seq (string * prim_constructor extra_op)) :=
-  let to_ex o := ExtOp o in
+  let to_ex o : extended_op := ExtOp o in
   map (fun '(s, p) => (s, map_prim_constructor to_ex p)) o.
 
 Definition get_prime_op : seq (string * prim_constructor extended_op) :=

@@ -125,7 +125,7 @@ let enforce_sp_min_align ~stack_size ~extra_size ~max_stk align =
   else if wsize_lt align sp_min_align then sp_min_align
   else align
 
-let memory_analysis pp_sr pp_err ~debug up =
+let memory_analysis pp_sr pp_err ~debug callee_saved_strategy up =
   if debug then Format.eprintf "START memory analysis@.";
   let p = Conv.prog_of_cuprog up in
   let gao, sao = Varalloc.alloc_stack_prog Arch.callstyle Arch.reg_size p in
@@ -341,7 +341,12 @@ let memory_analysis pp_sr pp_err ~debug up =
   List.iter fix_subroutine_csao (List.rev fds);
 
   let return_addresses = Regalloc.create_return_addresses get_internal_size fds in
-  let subst, killed, fds = Regalloc.alloc_prog return_addresses fds in
+  let ra_data =
+    if callee_saved_strategy = CSS_Tight then
+      let subst, killed, _ = Regalloc.alloc_prog return_addresses fds in
+      Some (subst, killed)
+    else None
+  in
 
   let fix_csao (_, fd) =
     let fn = fd.f_name in
@@ -363,18 +368,35 @@ let memory_analysis pp_sr pp_err ~debug up =
     | Internal -> assert false
     | Export ->
 
-    let ro = Regalloc.get_reg_oracle has_stack subst killed fd in
+    let num_callee_saved, no_room_for_rsp =
+      let key = "callee_saved" in
+      match Annotations.get key fd.f_annot.f_user_annot with
+      | Some (Some { pl_desc = Aint n }) -> max 0 (Z.to_int n - 1), not (Z.equal Z.zero n)
+      | a ->
+      if Option.is_some a then
+        warning Always (L.i_loc0 fd.f_loc) "ignored ill-formed %s annotation" key;
+      match callee_saved_strategy with
+      | CSS_Tight ->
+         let subst, killed = Option.get ra_data in
+         let ro = Regalloc.get_reg_oracle has_stack subst killed fd in
+         List.length ro.ro_to_save, ro.ro_rsp = None
+      | CSS_Optimistic -> 0, has_stack fd
+      | CSS_Pessimistic -> Stdlib.Int.max_int, true
+    in
+
     let sao = Hf.find sao fn in
     let csao = get_sao fn in 
 
-    let to_save = ro.ro_to_save in 
+    let to_save =
+      List.take num_callee_saved
+      (List.remove Arch.callee_save_vars Arch.rsp_var) in
     let has_stack = has_stack fd || to_save <> [] in
 
     let rsp = V.clone Arch.rsp_var in
     let extra =
       (* FIXME: how to make this more generic? *)
       let extra = List.rev to_save in
-      if has_stack && ro.ro_rsp = None then extra @ [rsp]
+      if has_stack && no_room_for_rsp then extra @ [rsp]
       else extra in
       
     let extra_size, align, extrapos = Varalloc.extend_sao sao extra in
@@ -454,9 +476,9 @@ let memory_analysis pp_sr pp_err ~debug up =
     let max_call_depth = Z.succ max_call_depth in
     let saved_stack = 
       if has_stack then
-        match ro.ro_rsp with
-        | Some x -> Expr.SavedStackReg (Conv.cvar_of_var x)
-        | None   -> Expr.SavedStackStk (Conv.cz_of_int (List.assoc rsp extrapos))
+        match no_room_for_rsp with
+        | false -> Expr.SavedStackReg (Conv.cvar_of_var Arch.rip)
+        | true   -> Expr.SavedStackStk (Conv.cz_of_int (List.assoc rsp extrapos))
       else Expr.SavedStackNone in
 
     let conv_to_save x =
