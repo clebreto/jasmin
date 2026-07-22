@@ -34,14 +34,19 @@ let checksafety arch call_conv idirs slice safety_param no_check_alignment
     else fds
   in
   let is_safe =
-    List.fold_left
-      (fun res f_decl ->
-        let () =
-          Format.eprintf "@[<v>Analyzing function %s@]@." f_decl.f_name.fn_name
-        in
+    try
+      List.fold_left
+        (fun res f_decl ->
+          let () =
+            Format.eprintf "@[<v>Analyzing function %s@]@."
+              f_decl.f_name.fn_name
+          in
 
-        P.analyze ~safety_param f_decl prog && res)
-      true fds
+          P.analyze ~safety_param f_decl prog && res)
+        true fds
+    with HiError err ->
+      Format.eprintf "%a@." pp_hierror err;
+      exit 1
   in
   exit (if is_safe then 0 else 2)
 
