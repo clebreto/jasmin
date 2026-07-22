@@ -250,18 +250,58 @@ Definition is_mov_imm (ws : wsize) (x : Z) : bool :=
 Notation register_ext := empty.
 Notation xregister := empty.
 
-Definition armv8a_check_CAimm (checker : caimm_checker_s) ws (w : word ws) : bool :=
+(* Immediate-argument conditions (see [caimm_cond] in arch_decl.v).
+   Each constructor is a validity predicate for an immediate operand and
+   carries the datum its rule depends on:
+   - [CAimmC_armv8a_shift_amount] carries a [wsize]: the amount range is
+     [0, datasize) for every shift type, but there are two operand widths
+     (W = 32, X = 64). See [check_shift_amount] above, grounded in the
+     C6.2 shifted-register decode.
+   - [CAimmC_armv8a_halfword_shift] carries a [wsize]: the MOVZ/MOVN/MOVK
+     halfword shift (hw field, C6.2.192-C6.2.194) is a multiple of 16 below
+     the operand width, so 32 and 48 only exist in the X form.
+   The immediate-encoding conditions take the operand width from the
+   [wsize] of the immediate itself (the [CAimm] argument kind carries it),
+   so they need no payload:
+   - [CAimmC_armv8a_arith_imm]: 12-bit unsigned immediate, optionally shifted
+     left by 12 (ADD/SUB/CMP/CMN immediate class, C6.2.5).
+   - [CAimmC_armv8a_bitmask_imm]: logical (bitmask) immediates - a run of ones
+     rotated within an element of 2/4/8/16/32/64 bits, replicated across the
+     operand (AND/ORR/EOR/ANDS/TST immediate class, DecodeBitMasks, J1.1).
+   - [CAimmC_armv8a_mov_imm]: immediates accepted by the MOV alias - a wide
+     immediate (MOVZ), an inverted wide immediate (MOVN) or a bitmask
+     immediate (ORR), C6.2.192-C6.2.194. *)
+#[only(eqbOK)] derive
+Variant armv8a_caimm_cond :=
+  | CAimmC_armv8a_shift_amount of wsize
+  | CAimmC_armv8a_halfword_shift of wsize
+  | CAimmC_armv8a_arith_imm
+  | CAimmC_armv8a_bitmask_imm
+  | CAimmC_armv8a_mov_imm.
+
+#[ export ]
+Instance eqTC_armv8a_caimm_cond : eqTypeC armv8a_caimm_cond :=
+  { ceqP := armv8a_caimm_cond_eqb_OK }.
+
+Definition armv8a_check_CAimm (checker : armv8a_caimm_cond) ws (w : word ws) : bool :=
   match checker with
-  | CAimmC_none => true
   | CAimmC_armv8a_shift_amount ws' => check_shift_amount ws' (wunsigned w)
   | CAimmC_armv8a_halfword_shift ws' =>
     let x := wunsigned w in (x \in [:: 0; 16; 32; 48 ]%Z) && (x <? wsize_bits ws')%Z
   | CAimmC_armv8a_arith_imm => is_arith_imm (wunsigned w)
   | CAimmC_armv8a_bitmask_imm => is_bitmask_imm ws (wunsigned w)
   | CAimmC_armv8a_mov_imm => is_mov_imm ws (wunsigned w)
-  | CAimmC_arm_shift_amout _ | CAimmC_arm_wencoding _ | CAimmC_arm_0_8_16_24 => false
-  | CAimmC_riscv_12bits_signed | CAimmC_riscv_5bits_unsigned => false
   end.
+
+Definition armv8a_caimm_cond_pp (checker : armv8a_caimm_cond) : string :=
+  match checker with
+  | CAimmC_armv8a_shift_amount ws => if ws == U64 then "[0, 63]" else "[0, 31]"
+  | CAimmC_armv8a_halfword_shift ws =>
+      if ws == U64 then "[0; 16; 32; 48]" else "[0; 16]"
+  | CAimmC_armv8a_arith_imm => "(arith imm12, optionally << 12)"
+  | CAimmC_armv8a_bitmask_imm => "(logical bitmask immediate)"
+  | CAimmC_armv8a_mov_imm => "(wide, inverted wide or bitmask immediate)"
+  end%string.
 
 #[ export ]
 Instance armv8a_decl : arch_decl register register_ext xregister rflag condt :=
@@ -275,6 +315,9 @@ Instance armv8a_decl : arch_decl register register_ext xregister rflag condt :=
   ; reg_size_neq_xreg_size := refl_equal
   ; ad_rsp := RSP
   ; ad_fcp := arm_fcp
+  ; caimm_cond := armv8a_caimm_cond
+  ; caimm_cond_eqC := eqTC_armv8a_caimm_cond
+  ; caimm_cond_pp := armv8a_caimm_cond_pp
   ; check_CAimm := armv8a_check_CAimm
   }.
 
