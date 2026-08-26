@@ -315,7 +315,7 @@ Qed.
 
 Lemma armv8a_lstore_correct : lstore_correct_aux armv8a_check_ws armv8a_lstore.
 Proof.
-  move=> xd xs ofs ws w wp s m htxs /eqP hchk; t_xrbindP; subst ws.
+  move=> xd xs ofs ws w wp s m /eqP hchk; t_xrbindP; subst ws.
   move=> vd hgetd htrd vs hgets htrs hwr.
   rewrite /armv8a_lstore /= hgets hgetd /= /exec_sopn /= htrs /=.
   rewrite /sem_sop2 /= htrd /= !truncate_word_u /= truncate_word_u /=.
@@ -339,7 +339,7 @@ Qed.
 Lemma armv8a_lload_correct :
   lload_correct_aux (lip_check_ws armv8a_liparams) armv8a_lload.
 Proof.
-  move=> xd xs ofs ws top s w vm heq hcheck; t_xrbindP => ? hgets hto hread hset.
+  move=> xd xs ofs ws top s w vm hcheck; t_xrbindP => ? hgets hto hread hset.
   move/eqP: hcheck => ?; subst ws.
   rewrite /armv8a_lload /= hgets /= /sem_sop2 /= hto /= !truncate_word_u /=
     truncate_word_u /= hread /=.
@@ -405,9 +405,9 @@ Proof.
       exists2 vm,
         sem_fopns_args (with_vm s vmr)
           (if is_arith_small ofs
-           then [:: armv8a_lload vtmp2i rspi ofs; armv8a_lmove rspi vtmp2i ]
+           then [:: armv8a_lload Uptr vtmp2i rspi ofs; armv8a_lmove rspi vtmp2i ]
            else ARMv8AFopn_smart_addi vtmp2i rspi ofs
-                ++ [:: armv8a_lload vtmp2i vtmp2i 0%Z; armv8a_lmove rspi vtmp2i ])
+                ++ [:: armv8a_lload Uptr vtmp2i vtmp2i 0%Z; armv8a_lmove rspi vtmp2i ])
           = ok (with_vm s vm)
         & vm =[\ Sv.singleton (v_var vtmp2i) ] vmr.[v_var rspi <- Vword w_sp].
   - move=> vmr hget_r.
@@ -416,7 +416,7 @@ Proof.
       rewrite -cat1s sem_fopns_args_cat !sem_fopns_args_1.
       rewrite (armv8a_lload_correct (xd := vtmp2i) (xs := rspi)
                  (s := with_vm s vmr)
-                 hconv2 armv8a_check_ws_correct hget_r hread (hsetvar _ _)).
+                 armv8a_check_ws_correct hget_r hread (hsetvar _ _)).
       rewrite /= get_var_eq /=; last by [].
       rewrite /exec_sopn /= truncate_word_u /=.
       rewrite set_var_eq_type /=; first last.
@@ -440,7 +440,7 @@ Proof.
     + by rewrite wrepr0 GRing.addr0.
     rewrite (armv8a_lload_correct (xd := vtmp2i) (xs := vtmp2i)
                (s := with_vm (with_vm s vmr) vma)
-               hconv2 armv8a_check_ws_correct _ hread0 (hsetvar _ _)); first last.
+               armv8a_check_ws_correct _ hread0 (hsetvar _ _)); first last.
     + by rewrite hgeta /= truncate_word_u.
     rewrite /= get_var_eq /=; last by [].
     rewrite /exec_sopn /= truncate_word_u /=.

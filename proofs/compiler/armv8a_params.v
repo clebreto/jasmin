@@ -7,6 +7,7 @@ From mathcomp Require Import word_ssrZ.
 Require Import
   arch_params
   compiler_util
+  constant_prop
   expr
   fexpr
   shift_kind.
@@ -189,13 +190,11 @@ Definition armv8a_lmove (xd xs : var_i) :=
 
 Definition armv8a_check_ws ws := ws == reg_size.
 
-Definition armv8a_lstore (xd : var_i) (ofs : Z) (xs : var_i) :=
-  let ws := reg_size in
+Definition armv8a_lstore (ws : wsize) (xd : var_i) (ofs : Z) (xs : var_i) :=
   let mn := STR in
   ([:: Store Aligned ws (faddv Uptr xd (fconst ws ofs))], Oarmv8a (ARMv8A_op mn default_opts), [:: Rexpr (Fvar xs)]).
 
-Definition armv8a_lload (xd : var_i) (xs : var_i) (ofs : Z) :=
-  let ws := reg_size in
+Definition armv8a_lload (ws : wsize) (xd : var_i) (xs : var_i) (ofs : Z) :=
   let mn := LDR in
   ([:: LLvar xd], Oarmv8a (ARMv8A_op mn default_opts), [:: Load Aligned ws (faddv Uptr xs (fconst ws ofs))]).
 
@@ -212,19 +211,23 @@ Definition armv8a_lloads (rspi : var_i) (to_restore : seq (var * Z)) (spofs : Z)
     seq fopn_args :=
   let restore_regs :=
     if all (fun '(_, ofs) => is_arith_small ofs) to_restore then
-      map (fun '(x, ofs) => armv8a_lload (VarI x dummy_var_info) rspi ofs) to_restore
+      map (fun '(x, ofs) =>
+             armv8a_lload (wsize_of_atype (vtype x)) (VarI x dummy_var_info) rspi ofs)
+          to_restore
     else
       let ofs0 := snd (head (v_var rspi, 0%Z) to_restore) in
       let to_restore := map (fun '(x, ofs) => (x, ofs - ofs0)%Z) to_restore in
       ARMv8AFopn_smart_addi vtmp2i rspi ofs0
-        ++ map (fun '(x, ofs) => armv8a_lload (VarI x dummy_var_info) vtmp2i ofs) to_restore
+        ++ map (fun '(x, ofs) =>
+                  armv8a_lload (wsize_of_atype (vtype x)) (VarI x dummy_var_info) vtmp2i ofs)
+               to_restore
   in
   let restore_sp :=
     if is_arith_small spofs then
-      [:: armv8a_lload vtmp2i rspi spofs; armv8a_lmove rspi vtmp2i ]
+      [:: armv8a_lload Uptr vtmp2i rspi spofs; armv8a_lmove rspi vtmp2i ]
     else
       ARMv8AFopn_smart_addi vtmp2i rspi spofs
-        ++ [:: armv8a_lload vtmp2i vtmp2i 0; armv8a_lmove rspi vtmp2i ]
+        ++ [:: armv8a_lload Uptr vtmp2i vtmp2i 0; armv8a_lmove rspi vtmp2i ]
   in
   restore_regs ++ restore_sp.
 
