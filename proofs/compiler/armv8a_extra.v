@@ -55,7 +55,7 @@ Definition Oarmv8a_add_large_imm_instr : instruction_desc :=
    ; semu   := @values.vuincl_app_sopn_v ctin [:: cty] (sem_prod_ok ctin semi) refl_equal
    ; i_safe := [::]
    ; i_valid := true
-   ; i_doit := doit
+   ; i_doit := DOIT
    ; i_safe_wf := refl_equal
    ; i_semi_errty :=  fun _ => sem_prod_ok_error (tin:=ctin) semi _
    ; i_semi_safe := fun _ => values.sem_prod_ok_safe (tin:=ctin) semi
@@ -67,7 +67,7 @@ Definition smart_li_instr (ws : wsize) : instruction_desc :=
     [:: aword ws ] [:: E 0 ]
     [:: aword ws ] [:: E 1 ]
     (fun x => x)
-    true doit.
+    true DOIT.
 
 Definition get_instr_desc (o: armv8a_extra_op) : instruction_desc :=
   match o with
