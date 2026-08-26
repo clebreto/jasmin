@@ -5,7 +5,7 @@ stages:
 - test
 - deploy
 
-image: nixos/nix:2.24.15
+image: nixos/nix:2.34.8
 
 variables:
   EXTRA_SUBSTITUTERS: https://jasmin.cachix.org
@@ -219,7 +219,7 @@ libjade:
   stage: test
   parallel:
     matrix:
-      - PRIMITIVE: [ mldsa, mlkem, xmss ]
+      - PRIMITIVE: [ curve25519, mldsa, mlkem, xmss ]
   variables:
     EXTRA_NIX_ARGUMENTS: --arg ocamlDeps true
   extends: .common
@@ -287,7 +287,6 @@ push-compiler-code:
   needs:
   - tarball
   before_script:
-  - nix-env -iA nixpkgs.git
   - nix-env -iA nixpkgs.openssh
   - eval $(ssh-agent -s)
   - mkdir -p ~/.ssh
