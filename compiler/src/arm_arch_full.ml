@@ -56,5 +56,7 @@ module Arm (Lowering_params : Arm_input) : Arch_full.Core_arch
 
   let callstyle = Arch_full.ByReg { call = Some LR; return = false }
 
+  let sp_min_align = Wsize.U8
+
   let internal_call_conv = Arm_decl.arm_internal_call_conv
 end
