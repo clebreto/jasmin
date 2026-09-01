@@ -2,8 +2,8 @@ module Core_arch_ARM : Arch_full.Core_arch
   with type reg = Arm_decl.register
    and type regx = Arch_utils.empty
    and type xreg = Arch_utils.empty
-   and type rflag = Arm_decl.rflag
-   and type cond = Arm_decl.condt
+   and type rflag = Arm_common.rflag
+   and type cond = Arm_common.condt
    and type asm_op = Arm_instr_decl.arm_op
    and type extra_op = Arm_extra.arm_extra_op
 

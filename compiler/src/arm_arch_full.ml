@@ -1,4 +1,5 @@
 open Arch_decl
+open Arm_common
 open Arm_decl
 
 
