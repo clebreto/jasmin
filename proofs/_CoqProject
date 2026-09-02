@@ -65,6 +65,7 @@ compiler/arm_params_core_proof.v
 compiler/arm_stack_zeroization.v
 compiler/arm_stack_zeroization_proof.v
 compiler/arm.v
+compiler/armv8a_decl.v
 compiler/array_expansion.v
 compiler/array_expansion_proof.v
 compiler/array_copy.v
