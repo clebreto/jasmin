@@ -68,6 +68,8 @@ compiler/arm.v
 compiler/armv8a.v
 compiler/armv8a_decl.v
 compiler/armv8a_instr_decl.v
+compiler/armv8a_params_core.v
+compiler/armv8a_params_core_proof.v
 compiler/array_expansion.v
 compiler/array_expansion_proof.v
 compiler/array_copy.v
