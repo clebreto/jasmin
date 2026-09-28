@@ -1,0 +1,4 @@
+(executable
+ (name gen_armv8m_hw_semantics)
+ (modules gen_armv8m_hw_semantics)
+ (libraries jasmin.jasmin))

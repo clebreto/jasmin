@@ -41,6 +41,7 @@ OBELISK ?= obelisk
 
 # --------------------------------------------------------------------
 .PHONY: all CIL check check-ci
+.PHONY: check-armv8m-semantics check-armv8m-semantics-qemu
 .PHONY: clean install uninstall dist
 
 all:
@@ -62,6 +63,15 @@ check-ci:
 check-ec:
 	$(MAKE) -C examples/gimli/proofs
 	$(MAKE) -C examples/extraction-unit-tests
+
+# Differential test of the semantics of the instructions of ARMv8-M (the
+# model of arm_instr_decl.v, evaluated through its extraction) against the
+# hardware: a Cortex-M33 board and its debug probe, or QEMU.
+check-armv8m-semantics:
+	$(MAKE) -C tests/armv8m-hw-semantics check-board
+
+check-armv8m-semantics-qemu:
+	$(MAKE) -C tests/armv8m-hw-semantics check-qemu
 
 check-all: check
 	dune runtest -f

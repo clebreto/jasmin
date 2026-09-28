@@ -1,0 +1,9 @@
+/* NXP LPC55S69 (Cortex-M33): 630 KB of flash, SRAM 0 at 0x20000000. */
+
+MEMORY
+{
+  FLASH (rx)  : ORIGIN = 0x00000000, LENGTH = 630K
+  RAM   (rwx) : ORIGIN = 0x20000000, LENGTH = 64K
+}
+
+INCLUDE sections.ld
