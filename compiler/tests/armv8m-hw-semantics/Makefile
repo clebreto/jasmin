@@ -2,14 +2,18 @@
 # hardware: see README.md.
 #
 # The generator (gen_armv8m_hw_semantics.ml) enumerates the instructions of
-# the model (proofs/compiler/arm_instr_decl.v, at the Armv8-M version), prints
-# them with the assembly printer of the compiler, and computes the expected
-# results with the semantics of the model. The runner executes them on a
-# Cortex-M33 and compares.
+# the model (proofs/compiler/arm_instr_decl.v, at the ARMv8.1-M version),
+# prints them with the assembly printer of the compiler, and computes the
+# expected results with the semantics of the model. The runner executes them
+# on a Cortex-M33 or a Cortex-M55 and compares.
 #
 # Usage:
 #   make check-board   on the NXP LPC55S69-EVK, through its debug probe
 #   make check-qemu    on the Cortex-M33 emulated by QEMU
+#   make check-qemu QEMU_MACHINE=mps3-an547 \
+#        ARCHFLAGS="-mcpu=cortex-m55+nofp+nomve -mthumb"
+#                      on the Cortex-M55 emulated by QEMU (the conditional
+#                      selects of ARMv8.1-M need it)
 
 CROSS   ?= arm-none-eabi-
 CC      := $(CROSS)gcc

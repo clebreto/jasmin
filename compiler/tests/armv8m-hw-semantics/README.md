@@ -5,9 +5,12 @@ Checks that the semantics of the instructions of the Arm M-profile model
 processor computes.
 
 The reference is the Armv8-M Architecture Reference Manual (DDI0553B.r). The
-target is a Cortex-M33: Armv8-M with the Main and DSP extensions. The
-instructions are the ones of ARMv7-M: the test also runs on a Cortex-M4, with
-`ARCHFLAGS="-mcpu=cortex-m4 -mthumb"`.
+model is taken at its ARMv8.1-M version: the instructions of ARMv7-M, which
+also run on a Cortex-M4 (`ARCHFLAGS="-mcpu=cortex-m4 -mthumb"`) and on a
+Cortex-M33 (the conditional selects are then reported as faulting), and the
+conditional selects, which need a Cortex-M55:
+`ARCHFLAGS="-mcpu=cortex-m55+nofp+nomve -mthumb"`, and, with QEMU, the machine
+`mps3-an547` (`QEMU_MACHINE=mps3-an547 QEMU_LD=mps3-an547.ld`).
 
 ## Running the test
 

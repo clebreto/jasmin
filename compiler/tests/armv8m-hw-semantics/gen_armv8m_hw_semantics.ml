@@ -2,7 +2,8 @@
 
    This program enumerates the instructions of the Arm M-profile model
    (proofs/compiler/arm_instr_decl.v, through its extraction in
-   src/CIL/arm_instr_decl.ml) at the Armv8-M version, with their options
+   src/CIL/arm_instr_decl.ml) at the ARMv8.1-M version (every instruction
+   of ARMv7-M, and the conditional selects), with their options
    (flag setting, shifted operand, conditional execution) and with every
    kind of operands that the model accepts (registers, immediates, memory
    operands, conditions).
@@ -42,7 +43,7 @@ open Arm_common
 open Arm_decl
 module A = Arm_instr_decl
 
-let version = ARMv8M
+let version = ARMv8_1M
 let op_decl = A.arm_op_decl version
 
 (* -------------------------------------------------------------------- *)
@@ -477,6 +478,7 @@ let enumerate () =
                       (* Every condition is tested on two instructions. *)
                       let all_conds =
                         plain && (not set_flags) && (mn = A.MOV || mn = A.ADD)
+                        || List.mem mn A.armv8_1m_mnemonics
                       in
                       if (not is_conditional) || plain then
                         enumerate_op ~all_conds
@@ -558,8 +560,6 @@ let set_flags_bits s bits =
     s.flags.(i) <- Some (bits land (1 lsl (3 - i)) <> 0)
   done
 
-let is_conditional (A.ARM_op (_, opts)) = opts.A.is_conditional
-
 let has_imm args = List.exists (function Imm _ -> true | _ -> false) args
 
 let nb_rows (f : form) =
@@ -567,6 +567,7 @@ let nb_rows (f : form) =
   if has_addr f.args then 4
   else if opts.A.is_conditional then
     if (mn = A.MOV || mn = A.ADD) && not opts.A.set_flags then 16 else 4
+  else if List.mem mn A.armv8_1m_mnemonics then 16 (* every value of NZCV *)
   else if opts.A.has_shift <> shift_of mn then 6
   else if has_imm f.args then 10
   else 24
@@ -593,7 +594,7 @@ let gen_rows (f : form) =
       regs;
     ignore nregs;
     let bits =
-      if is_conditional f.op && n = 16 then j (* every value of NZCV *)
+      if n = 16 then j (* every value of NZCV *)
       else rnd_int 16
     in
     set_flags_bits s bits;
